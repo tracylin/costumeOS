@@ -168,7 +168,7 @@ export default function App(){
   const[pullStatus,setPullStatus]=useState('');
   const[pushing,setPushing]=useState(false);
   const[pushSuccess,setPushSuccess]=useState(false);
-  const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'';}catch(e){return'';}});
+  const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec';}catch(e){return'https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec';}});
   const[syncPreview,setSyncPreview]=useState(false);
   const lpTimer=useRef(null);
 
