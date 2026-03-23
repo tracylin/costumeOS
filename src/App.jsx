@@ -165,6 +165,7 @@ export default function App(){
   const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'';}catch(e){return'';}});
   const[syncPopup,setSyncPopup]=useState(false);
   const[syncing,setSyncing]=useState(false);
+  const[syncSuccess,setSyncSuccess]=useState(0);
   const lpTimer=useRef(null);
   const dragIdx=useRef(null);
 
@@ -227,9 +228,11 @@ export default function App(){
     if(!syncUrl.trim()){alert('PASTE YOUR APPS SCRIPT URL IN SETTINGS FIRST.');return;}
     setSyncing(true);
     try{
+      const count=unsynced.length;
       await fetch(syncUrl,{method:'POST',mode:'no-cors',body:JSON.stringify({items:unsynced.map(i=>({character:i.character,look:i.look||'',item:i.item,note:i.note||''}))})});
       setItems(p=>p.map(i=>i.synced===false?{...i,synced:true}:i));
       setSyncPopup(false);
+      setSyncSuccess(count);
     }catch(err){alert('SYNC FAILED: '+err.message);}
     setSyncing(false);
   };
@@ -342,20 +345,13 @@ export default function App(){
             const isDragging=dragging===idx;
             return(
               <div key={ch.name} data-ti={idx}
-                style={{background:BG,borderRadius:RD,padding:14,cursor:editMode?'default':'pointer',WebkitTapHighlightColor:'transparent',minHeight:140,display:'flex',flexDirection:'column',justifyContent:'space-between',position:'relative',opacity:fullyMuted?0.38:1,transition:'opacity 0.2s,transform 0.15s,box-shadow 0.15s',animation:editMode?`jiggle 0.22s ease-in-out ${idx*0.035}s infinite alternate`:'none',transform:isDragging?'scale(1.06)':'scale(1)',boxShadow:isDragging?'0 10px 30px rgba(0,0,0,0.6)':''}}
-                onTouchStart={editMode?undefined:startLp}
-                onTouchEnd={editMode?undefined:cancelLp}
-                onTouchMove={editMode?undefined:cancelLp}
+                style={{background:BG,borderRadius:RD,padding:14,cursor:editMode?(isDragging?'grabbing':'grab'):'pointer',WebkitTapHighlightColor:'transparent',minHeight:140,display:'flex',flexDirection:'column',justifyContent:'space-between',position:'relative',opacity:fullyMuted?0.38:1,transition:'opacity 0.2s,transform 0.15s,box-shadow 0.15s',animation:editMode?`jiggle 0.22s ease-in-out ${idx*0.035}s infinite alternate`:'none',transform:isDragging?'scale(1.06)':'scale(1)',boxShadow:isDragging?'0 10px 30px rgba(0,0,0,0.6)':'',userSelect:'none',WebkitUserSelect:'none'}}
+                onTouchStart={editMode?onDragStart(idx):startLp}
+                onTouchMove={editMode?onDragMove:cancelLp}
+                onTouchEnd={editMode?onDragEnd:cancelLp}
                 onClick={editMode?undefined:()=>setSel(ch.name)}
               >
-                {editMode&&(
-                  <div style={{position:'absolute',top:4,right:4,padding:10,cursor:'grab',zIndex:2,color:R2,fontSize:18,lineHeight:1,touchAction:'none',userSelect:'none'}}
-                    onTouchStart={onDragStart(idx)}
-                    onTouchMove={onDragMove}
-                    onTouchEnd={onDragEnd}
-                  >⠿</div>
-                )}
-                <div style={{fontFamily:FF,fontSize:13,fontWeight:700,color:fullyMuted?R3:R,letterSpacing:0.5,lineHeight:1.3,textTransform:'uppercase',paddingRight:editMode?30:0}}>{sn(ch.name)}</div>
+                <div style={{fontFamily:FF,fontSize:13,fontWeight:700,color:fullyMuted?R3:R,letterSpacing:0.5,lineHeight:1.3,textTransform:'uppercase'}}>{sn(ch.name)}</div>
                 {editMode?(
                   <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:5,padding:'8px 0 4px'}}>
                     {hasLooks?looks.map(lk=>{
@@ -377,7 +373,7 @@ export default function App(){
                         style={{fontFamily:FF,fontSize:9,fontWeight:700,letterSpacing:1,padding:'5px 8px',border:`1px solid ${m?R3:R2}`,borderRadius:3,cursor:'pointer',textTransform:'uppercase',background:m?R3:'transparent',color:m?R2:R,display:'flex',alignItems:'center',gap:5,WebkitTapHighlightColor:'transparent'}}
                       >
                         <span style={{width:6,height:6,borderRadius:'50%',background:m?R3:R,display:'inline-block',flexShrink:0}}/>
-                        {m?'MUTED':'TRACKING'}
+                        {m?'OFF':'ON'}
                       </button>
                     );})()}
                   </div>
@@ -400,6 +396,15 @@ export default function App(){
   // BLACK CANVAS VIEWS
   return(
     <div style={{background:BG,minHeight:'100vh'}}>
+    {syncSuccess>0&&(
+      <div onTouchStart={()=>setSyncSuccess(0)} onClick={()=>setSyncSuccess(0)} style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.96)',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20,cursor:'pointer'}}>
+        <div style={{textAlign:'center'}}>
+          <div style={{fontSize:48,lineHeight:1,marginBottom:16}}>✓</div>
+          <div style={{fontFamily:FF,fontSize:16,fontWeight:700,letterSpacing:2,color:R,textTransform:'uppercase',marginBottom:8}}>{syncSuccess} ITEM{syncSuccess>1?'S':''} SYNCED</div>
+          <div style={{fontFamily:FF,fontSize:11,color:R2,letterSpacing:1,textTransform:'uppercase'}}>TAP ANYWHERE TO DISMISS</div>
+        </div>
+      </div>
+    )}
     {syncPopup&&(
       <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.96)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
         <div style={{background:'#111',border:`1px solid ${R3}`,padding:20,maxWidth:400,width:'100%',maxHeight:'70vh',display:'flex',flexDirection:'column'}}>
