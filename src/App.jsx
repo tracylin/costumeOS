@@ -82,7 +82,6 @@ const INIT = [
 ].map(x=>({id:x.id,character:x.c,actor:x.a,look:x.l,item:x.i,ret:x.r,done:x.d,note:x.n}));
 const ADMIN_CODE='wei2025';
 const MAX_INIT_ID=Math.max(...INIT.map(i=>i.id));
-const SYNC_URL='https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec='; // ← PASTE YOUR APPS SCRIPT WEB APP URL HERE
 
 const SK = {
   "1.THE AMERICAN": "data:image/jpeg;base64,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",
@@ -169,13 +168,15 @@ export default function App(){
   const[pullStatus,setPullStatus]=useState('');
   const[pushing,setPushing]=useState(false);
   const[pushSuccess,setPushSuccess]=useState(false);
-  const[showSetup,setShowSetup]=useState(false);
+  const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'';}catch(e){return'';}});
+  const[syncPreview,setSyncPreview]=useState(false);
   const lpTimer=useRef(null);
 
   // PERSISTENCE
   useEffect(()=>{try{localStorage.setItem('face_v9',JSON.stringify(items));}catch(e){}},[items]);
   useEffect(()=>{try{localStorage.setItem('face_muted',JSON.stringify(mutedLooks));}catch(e){};},[mutedLooks]);
   useEffect(()=>{try{localStorage.setItem('face_admin',isAdmin?'1':'0');}catch(e){};},[isAdmin]);
+  useEffect(()=>{try{localStorage.setItem('face_syncurl',syncUrl);}catch(e){};},[syncUrl]);
 
   // CALLBACKS
   const tog=useCallback(id=>setItems(p=>p.map(i=>i.id===id?{...i,done:!i.done}:i)),[]);
@@ -219,27 +220,28 @@ export default function App(){
     return result;
   };
   const doPull=async()=>{
-    if(!https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec){setPullStatus('NO URL SET');return;}
+    if(!syncUrl.trim()){setPullStatus('NO URL');return;}
     setPullStatus('PULLING...');
     try{
-      const r=await fetch(https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec+'?t='+Date.now());
+      const r=await fetch(syncUrl.trim()+'?t='+Date.now());
       const data=await r.json();
       setItems(p=>mergePull(p,data));
       setPullStatus('SYNCED ✓');
     }catch(e){setPullStatus('ERROR');}
   };
   const doPush=async()=>{
-    if(!https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec){alert('SET https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec IN CODE FIRST.');return;}
+    if(!syncUrl.trim()){alert('PASTE YOUR APPS SCRIPT URL IN SETTINGS FIRST.');return;}
+    setSyncPreview(false);
     setPushing(true);
     try{
       const notes={};items.forEach(i=>{if(i.note)notes[i.id]=i.note;});
       const added=items.filter(i=>i.id>MAX_INIT_ID).map(i=>({id:i.id,character:i.character,actor:i.actor||'',look:i.look||'',item:i.item,note:i.note||''}));
-      await fetch(https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec,{method:'POST',mode:'no-cors',body:JSON.stringify({notes,added})});
+      await fetch(syncUrl.trim(),{method:'POST',mode:'no-cors',body:JSON.stringify({notes,added})});
       setPushSuccess(true);
     }catch(err){alert('SYNC FAILED: '+err.message);}
     setPushing(false);
   };
-  useEffect(()=>{if(!isAdmin&&https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec)doPull();},[]);
+  useEffect(()=>{if(!isAdmin&&syncUrl.trim())doPull();},[]);
 
   // NAV
   const Nav=()=>(
@@ -398,6 +400,46 @@ export default function App(){
   // BLACK CANVAS VIEWS
   return(
     <div style={{background:BG,minHeight:'100vh'}}>
+    {syncPreview&&(
+      <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.96)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{background:'#111',border:`1px solid ${R3}`,padding:20,maxWidth:400,width:'100%',maxHeight:'80vh',display:'flex',flexDirection:'column'}}>
+          <div style={{fontFamily:FF,fontSize:13,fontWeight:700,letterSpacing:2,color:R,marginBottom:4,textTransform:'uppercase'}}>SYNC TO SHEET</div>
+          <div style={{fontFamily:FF,fontSize:10,color:R2,marginBottom:14,textTransform:'uppercase',letterSpacing:0.5}}>THE FOLLOWING WILL BE PUSHED</div>
+          <div style={{overflowY:'auto',flex:1,marginBottom:14}}>
+            {items.filter(i=>i.id>MAX_INIT_ID).length>0&&(
+              <div style={{marginBottom:12}}>
+                <div style={{fontFamily:FF,fontSize:9,fontWeight:700,color:R2,letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>ADDED ITEMS ({items.filter(i=>i.id>MAX_INIT_ID).length})</div>
+                {items.filter(i=>i.id>MAX_INIT_ID).map(i=>(
+                  <div key={i.id} style={{borderBottom:`1px solid ${R3}`,padding:'7px 0'}}>
+                    <div style={{fontFamily:FF,fontSize:10,fontWeight:700,color:R,textTransform:'uppercase',letterSpacing:0.5}}>{sn(i.character)}</div>
+                    <div style={{fontFamily:FF,fontSize:11,color:R2,textTransform:'uppercase',letterSpacing:0.3,marginTop:2}}>{i.item}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {items.filter(i=>i.note).length>0&&(
+              <div>
+                <div style={{fontFamily:FF,fontSize:9,fontWeight:700,color:R2,letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>ITEMS WITH NOTES ({items.filter(i=>i.note).length})</div>
+                {items.filter(i=>i.note).map(i=>(
+                  <div key={i.id} style={{borderBottom:`1px solid ${R3}`,padding:'7px 0'}}>
+                    <div style={{fontFamily:FF,fontSize:10,fontWeight:700,color:R,textTransform:'uppercase',letterSpacing:0.5}}>{sn(i.character)}</div>
+                    <div style={{fontFamily:FF,fontSize:11,color:R2,textTransform:'uppercase',letterSpacing:0.3,marginTop:2}}>{i.item}</div>
+                    <div style={{fontFamily:FF,fontSize:10,color:R2,opacity:0.7,textTransform:'uppercase',letterSpacing:0.3,marginTop:2}}>NOTE: {i.note}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {items.filter(i=>i.id>MAX_INIT_ID).length===0&&items.filter(i=>i.note).length===0&&(
+              <div style={{fontFamily:FF,fontSize:11,color:R2,textTransform:'uppercase',letterSpacing:0.5,padding:'8px 0'}}>NOTHING TO SYNC YET</div>
+            )}
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setSyncPreview(false)} style={{flex:1,fontFamily:FF,fontSize:12,background:'transparent',color:R2,border:`1px solid ${R3}`,padding:'12px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1,WebkitTapHighlightColor:'transparent'}}>CANCEL</button>
+            <button onClick={doPush} disabled={pushing} style={{flex:1,fontFamily:FF,fontSize:12,background:R,color:BG,border:'none',padding:'12px',cursor:'pointer',fontWeight:700,borderRadius:0,textTransform:'uppercase',letterSpacing:1,opacity:pushing?0.5:1,WebkitTapHighlightColor:'transparent'}}>{pushing?'SYNCING...':'PROCEED'}</button>
+          </div>
+        </div>
+      </div>
+    )}
     {pushSuccess&&(
       <div onTouchStart={()=>setPushSuccess(false)} onClick={()=>setPushSuccess(false)} style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.96)',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20,cursor:'pointer'}}>
         <div style={{textAlign:'center'}}>
@@ -452,37 +494,12 @@ export default function App(){
         )}
         {view==='settings'&&(
           <div style={{padding:16}}>
-            {/* SETUP INSTRUCTIONS */}
-            <div style={{marginBottom:18}}>
-              <div onClick={()=>setShowSetup(v=>!v)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',WebkitTapHighlightColor:'transparent',paddingBottom:10,borderBottom:`1px solid ${R3}`}}>
-                <div style={{fontFamily:FF,fontSize:13,fontWeight:700,letterSpacing:2,textTransform:'uppercase'}}>GOOGLE SHEETS SETUP</div>
-                <div style={{fontFamily:FF,fontSize:11,color:R2}}>{showSetup?'▲':'▼'}</div>
-              </div>
-              {showSetup&&(
-                <div style={{fontFamily:FF,fontSize:11,color:R2,lineHeight:1.9,textTransform:'uppercase',letterSpacing:0.3,marginTop:10,paddingBottom:10,borderBottom:`1px solid ${R3}`}}>
-                  <div style={{marginBottom:6,color:R,fontWeight:700}}>ONE-TIME SETUP (ADMIN ONLY):</div>
-                  <div>1. CREATE A NEW GOOGLE SHEET</div>
-                  <div>2. EXTENSIONS → APPS SCRIPT</div>
-                  <div>3. PASTE CODE FROM google-apps-script.js</div>
-                  <div>4. DEPLOY → NEW DEPLOYMENT</div>
-                  <div style={{paddingLeft:14}}>• TYPE: WEB APP</div>
-                  <div style={{paddingLeft:14}}>• EXECUTE AS: ME</div>
-                  <div style={{paddingLeft:14}}>• WHO HAS ACCESS: ANYONE</div>
-                  <div>5. COPY WEB APP URL → SET https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec IN CODE</div>
-                  <div style={{marginTop:8,color:R,fontWeight:700}}>SYNC = PUSH NOTES + ADDED ITEMS TO SHEET</div>
-                  <div style={{marginTop:4,color:R2}}>CHECKBOXES ARE LOCAL-ONLY. NOTES + ADDED ITEMS SYNC.</div>
-                </div>
-              )}
-            </div>
-
             {/* SYNC BUTTON */}
-            <button onClick={isAdmin?doPush:undefined} disabled={!isAdmin||pushing}
+            <button onClick={isAdmin?()=>setSyncPreview(true):undefined} disabled={!isAdmin||pushing}
               style={{width:'100%',fontFamily:FF,fontSize:13,fontWeight:700,background:isAdmin?R:'transparent',color:isAdmin?BG:R3,border:`1px solid ${isAdmin?R:R3}`,padding:'14px',cursor:isAdmin?'pointer':'default',borderRadius:0,textTransform:'uppercase',letterSpacing:1,marginBottom:6,WebkitTapHighlightColor:'transparent',opacity:pushing?0.5:1}}>
               {pushing?'SYNCING...':'SYNC'}
             </button>
-            {isAdmin?(
-              <div style={{fontFamily:FF,fontSize:10,color:R2,letterSpacing:0.5,textTransform:'uppercase',marginBottom:18}}>PUSHES NOTES + {items.filter(i=>i.id>MAX_INIT_ID).length} ADDED ITEM{items.filter(i=>i.id>MAX_INIT_ID).length!==1?'S':''} TO SHEET</div>
-            ):(
+            {!isAdmin&&(
               <div style={{fontFamily:FF,fontSize:10,color:R3,letterSpacing:0.5,textTransform:'uppercase',marginBottom:6}}>
                 {pullStatus?`LAST PULL: ${pullStatus}`:'AUTO-SYNCS ON APP OPEN'}
               </div>
@@ -509,6 +526,12 @@ export default function App(){
               )}
             </div>
 
+            {/* SYNC URL */}
+            <div style={{borderTop:`1px solid ${R3}`,paddingTop:20,marginBottom:20}}>
+              <div style={{fontFamily:FF,fontSize:13,fontWeight:700,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>APPS SCRIPT URL</div>
+              <input type="url" placeholder="HTTPS://SCRIPT.GOOGLE.COM/..." value={syncUrl} onChange={e=>setSyncUrl(e.target.value)}
+                style={{width:'100%',background:BG,border:`1px solid ${R3}`,padding:12,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,letterSpacing:0.3}}/>
+            </div>
             {/* RESET CHECKBOXES */}
             <div style={{borderTop:`1px solid ${R3}`,paddingTop:20}}>
               <div style={{fontFamily:FF,fontSize:13,fontWeight:700,letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>RESET CHECKBOXES</div>
