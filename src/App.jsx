@@ -131,7 +131,7 @@ const Row=({item,onToggle,onNote,exp,onExp})=>{
       {exp&&(
         <div style={{padding:'0 14px 12px 74px'}}>
           <textarea ref={ref} value={item.note} onChange={e=>onNote(e.target.value)} placeholder="ADD NOTE..." rows={2}
-            style={{width:'100%',background:R3,border:`1px solid ${R2}`,padding:'12px',color:R,fontSize:13,fontFamily:FF,resize:'none',outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.3,lineHeight:1.5}}/>
+            style={{width:'100%',background:R3,border:`1px solid ${R2}`,padding:'12px',color:R,fontSize:16,fontFamily:FF,resize:'none',outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.3,lineHeight:1.5}}/>
         </div>
       )}
     </div>
@@ -145,8 +145,8 @@ const NavBtn=({active,Icon:I,label,badge,onClick,isLast})=>(
     {badge!=null&&<span style={{position:'absolute',top:4,right:6,fontFamily:FF,fontSize:9,fontWeight:700,color:R}}>{badge}</span>}
   </div>
 );
-
 export default function App(){
+  // STATE
   const[items,setItems]=useState(()=>{try{const s=localStorage.getItem('face_v9');if(s)return JSON.parse(s);}catch(e){}return INIT;});
   const[view,setView]=useState('chars');
   const[sel,setSel]=useState(null);
@@ -158,25 +158,83 @@ export default function App(){
   const[ni,setNi]=useState('');
   const[nr,setNr]=useState(false);
   const[showSk,setShowSk]=useState(false);
+  const[charOrder,setCharOrder]=useState(()=>{try{const s=localStorage.getItem('face_charorder');if(s)return JSON.parse(s);}catch(e){}return null;});
+  const[mutedLooks,setMutedLooks]=useState(()=>{try{const s=localStorage.getItem('face_muted');if(s)return JSON.parse(s);}catch(e){}return{};});
+  const[editMode,setEditMode]=useState(false);
+  const[dragging,setDragging]=useState(null);
+  const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'';}catch(e){return'';}});
+  const[syncPopup,setSyncPopup]=useState(false);
+  const[syncing,setSyncing]=useState(false);
+  const lpTimer=useRef(null);
+  const dragIdx=useRef(null);
 
+  // PERSISTENCE
   useEffect(()=>{try{localStorage.setItem('face_v9',JSON.stringify(items));}catch(e){}},[items]);
+  useEffect(()=>{try{if(charOrder)localStorage.setItem('face_charorder',JSON.stringify(charOrder));}catch(e){};},[charOrder]);
+  useEffect(()=>{try{localStorage.setItem('face_muted',JSON.stringify(mutedLooks));}catch(e){};},[mutedLooks]);
+  useEffect(()=>{try{localStorage.setItem('face_syncurl',syncUrl);}catch(e){};},[syncUrl]);
 
+  // CALLBACKS
   const tog=useCallback(id=>setItems(p=>p.map(i=>i.id===id?{...i,done:!i.done}:i)),[]);
   const sNote=useCallback((id,n)=>setItems(p=>p.map(i=>i.id===id?{...i,note:n}:i)),[]);
   const clrAll=useCallback(()=>{setItems(p=>p.map(i=>({...i,done:false})));setClr(false);},[]);
   const addIt=useCallback(cn=>{
     if(!ni.trim())return;
     const s=items.find(i=>i.character===cn);
-    setItems(p=>[...p,{id:Math.max(...p.map(i=>i.id))+1,character:cn,actor:s?.actor||'',look:null,item:ni.trim(),ret:nr,done:false,note:''}]);
+    setItems(p=>[...p,{id:Math.max(...p.map(i=>i.id))+1,character:cn,actor:s?.actor||'',look:null,item:ni.trim(),ret:nr,done:false,note:'',synced:false}]);
     setNi('');setNr(false);setAdding(null);
   },[items,ni,nr]);
 
-  const chars=getChars(items);
-  const dN=items.filter(i=>i.done).length,tN=items.length,oN=tN-dN,rN=items.filter(i=>i.ret).length;
-  const go=v=>{setView(v);setSel(null);setExp(null);setSearch('');setAdding(null);};
-  const renderItems=list=>list.map(it=><Row key={it.id} item={it} onToggle={()=>tog(it.id)} onNote={n=>sNote(it.id,n)} exp={exp===it.id} onExp={()=>setExp(exp===it.id?null:it.id)}/>);
-  const onRed=view==='chars'&&!sel;
+  // MUTE HELPERS
+  const isMuted=(cn,lk)=>mutedLooks[lk?`${cn}:${lk}`:cn]===true;
+  const toggleMute=(cn,lk)=>{const key=lk?`${cn}:${lk}`:cn;setMutedLooks(p=>{const n={...p};if(n[key])delete n[key];else n[key]=true;return n;});};
+  const isActive=item=>item.look?!isMuted(item.character,item.look):!isMuted(item.character,null);
 
+  // DERIVED
+  const chars=getChars(items);
+  const orderedChars=charOrder?[...chars].sort((a,b)=>{const ai=charOrder.indexOf(a.name),bi=charOrder.indexOf(b.name);return(ai<0?999:ai)-(bi<0?999:bi);}):chars;
+  const activeItems=items.filter(isActive);
+  const dN=activeItems.filter(i=>i.done).length,tN=activeItems.length,oN=tN-dN,rN=activeItems.filter(i=>i.ret).length;
+  const unsynced=items.filter(i=>i.synced===false);
+  const go=v=>{setView(v);setSel(null);setExp(null);setSearch('');setAdding(null);setEditMode(false);};
+  const renderItems=list=>list.map(it=><Row key={it.id} item={it} onToggle={()=>tog(it.id)} onNote={n=>sNote(it.id,n)} exp={exp===it.id} onExp={()=>setExp(exp===it.id?null:it.id)}/>);
+
+  // LONG PRESS
+  const startLp=()=>{lpTimer.current=setTimeout(()=>setEditMode(true),500);};
+  const cancelLp=()=>clearTimeout(lpTimer.current);
+
+  // DRAG REORDER (touch-based live swap)
+  const onDragStart=idx=>e=>{e.preventDefault();dragIdx.current=idx;setDragging(idx);};
+  const onDragMove=e=>{
+    e.preventDefault();
+    if(dragIdx.current==null)return;
+    const touch=e.touches[0];
+    const el=document.elementFromPoint(touch.clientX,touch.clientY);
+    const tile=el?.closest('[data-ti]');
+    if(!tile)return;
+    const ti=parseInt(tile.dataset.ti);
+    if(isNaN(ti)||ti===dragIdx.current)return;
+    const from=dragIdx.current;
+    dragIdx.current=ti;
+    setDragging(ti);
+    setCharOrder(prev=>{const base=prev||chars.map(c=>c.name);const arr=[...base];const[m]=arr.splice(from,1);arr.splice(ti,0,m);return arr;});
+  };
+  const onDragEnd=()=>{setDragging(null);dragIdx.current=null;};
+
+  // SYNC
+  const doSync=async()=>{
+    if(!syncUrl.trim()){alert('PASTE YOUR APPS SCRIPT URL IN SETTINGS FIRST.');return;}
+    setSyncing(true);
+    try{
+      const res=await fetch(syncUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:unsynced.map(i=>({character:i.character,look:i.look||'',item:i.item,note:i.note||''}))})});
+      if(!res.ok)throw new Error('bad response');
+      setItems(p=>p.map(i=>i.synced===false?{...i,synced:true}:i));
+      setSyncPopup(false);
+    }catch(err){alert('SYNC FAILED. CHECK URL AND SHEET DEPLOYMENT.');}
+    setSyncing(false);
+  };
+
+  // NAV
   const Nav=()=>(
     <div style={{position:'fixed',bottom:0,left:0,right:0,background:BG,zIndex:100,borderTop:`1px solid ${R3}`}}>
       <div style={{maxWidth:480,margin:'0 auto',display:'flex'}}>
@@ -248,34 +306,86 @@ export default function App(){
     );
   }
 
-  // CHARS VIEW — red canvas
+  // CHARS VIEW
   if(view==='chars'){
     return(
       <div style={{background:R,minHeight:'100vh'}}>
+      <style>{`@keyframes jiggle{0%{transform:rotate(-1.5deg) scale(1.02)}100%{transform:rotate(1.5deg) scale(1.02)}}`}</style>
       <div style={{fontFamily:FF,maxWidth:480,margin:'0 auto'}}>
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-        <div style={{padding:'18px 16px 12px',display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+        <div style={{padding:'18px 16px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div style={{fontSize:18,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:BG}}>THE FACE</div>
-          <div style={{fontSize:28,fontWeight:800,letterSpacing:-1,color:BG}}>{dN}<span style={{opacity:0.3}}>/{tN}</span></div>
+          {editMode
+            ?<button onClick={()=>setEditMode(false)} style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,background:BG,color:R,border:'none',padding:'8px 18px',cursor:'pointer',borderRadius:4,textTransform:'uppercase',WebkitTapHighlightColor:'transparent'}}>DONE</button>
+            :<div style={{fontSize:28,fontWeight:800,letterSpacing:-1,color:BG}}>{dN}<span style={{opacity:0.3}}>/{tN}</span></div>
+          }
         </div>
-        <div style={{display:'flex',padding:'0 10px 8px',gap:8}}>
-          {[{n:oN,l:'OPEN'},{n:rN,l:'RETURN'},{n:dN,l:'DONE'}].map(s=>(
-            <div key={s.l} style={{flex:1,background:BG,borderRadius:RD,padding:'12px 8px',textAlign:'center'}}>
-              <div style={{fontFamily:FF,fontSize:22,fontWeight:800,lineHeight:1,color:R}}>{s.n}</div>
-              <div style={{fontFamily:FF,fontSize:8,letterSpacing:3,marginTop:4,color:R2}}>{s.l}</div>
-            </div>
-          ))}
-        </div>
+        {!editMode&&(
+          <div style={{display:'flex',padding:'0 10px 8px',gap:8}}>
+            {[{n:oN,l:'OPEN'},{n:rN,l:'RETURN'},{n:dN,l:'DONE'}].map(s=>(
+              <div key={s.l} style={{flex:1,background:BG,borderRadius:RD,padding:'12px 8px',textAlign:'center'}}>
+                <div style={{fontFamily:FF,fontSize:22,fontWeight:800,lineHeight:1,color:R}}>{s.n}</div>
+                <div style={{fontFamily:FF,fontSize:8,letterSpacing:3,marginTop:4,color:R2}}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {editMode&&<div style={{padding:'0 10px 8px',fontFamily:FF,fontSize:10,color:BG,opacity:0.6,letterSpacing:1,textTransform:'uppercase',textAlign:'center'}}>LONG PRESS ⠿ TO DRAG · TAP LOOK TO MUTE</div>}
         <div style={{padding:'0 10px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,paddingBottom:72}}>
-          {chars.map(ch=>{
-            const dn2=ch.items.filter(i=>i.done).length,tt=ch.items.length;
+          {orderedChars.map((ch,idx)=>{
+            const looks=Array.from(ch.looks);
+            const hasLooks=looks.length>0;
+            const fullyMuted=hasLooks?looks.every(lk=>isMuted(ch.name,lk)):isMuted(ch.name,null);
+            const visItems=hasLooks?ch.items.filter(i=>!isMuted(ch.name,i.look)):ch.items.filter(i=>!isMuted(ch.name,null));
+            const dn2=visItems.filter(i=>i.done).length,tt=visItems.length;
+            const isDragging=dragging===idx;
             return(
-              <div key={ch.name} onClick={()=>setSel(ch.name)} style={{background:BG,borderRadius:RD,padding:14,cursor:'pointer',WebkitTapHighlightColor:'transparent',minHeight:140,display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
-                <div style={{fontFamily:FF,fontSize:13,fontWeight:700,color:R,letterSpacing:0.5,lineHeight:1.3,textTransform:'uppercase'}}>{sn(ch.name)}</div>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'center',flex:1,padding:'8px 0'}}>
-                  {SK[ch.name]?<div style={{width:64,height:64,borderRadius:'50%',overflow:'hidden',border:`2px solid ${R3}`}}><img src={SK[ch.name]} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/></div>:<IcUser size={40} color={R} style={{opacity:0.12}}/>}
-                </div>
-                <div style={{fontFamily:FF,fontSize:24,fontWeight:800,color:R,lineHeight:1,opacity:dn2===0?0.25:1}}>{dn2}/{tt}</div>
+              <div key={ch.name} data-ti={idx}
+                style={{background:BG,borderRadius:RD,padding:14,cursor:editMode?'default':'pointer',WebkitTapHighlightColor:'transparent',minHeight:140,display:'flex',flexDirection:'column',justifyContent:'space-between',position:'relative',opacity:fullyMuted?0.38:1,transition:'opacity 0.2s,transform 0.15s,box-shadow 0.15s',animation:editMode?`jiggle 0.22s ease-in-out ${idx*0.035}s infinite alternate`:'none',transform:isDragging?'scale(1.06)':'scale(1)',boxShadow:isDragging?'0 10px 30px rgba(0,0,0,0.6)':''}}
+                onTouchStart={editMode?undefined:startLp}
+                onTouchEnd={editMode?undefined:cancelLp}
+                onTouchMove={editMode?undefined:cancelLp}
+                onClick={editMode?undefined:()=>setSel(ch.name)}
+              >
+                {editMode&&(
+                  <div style={{position:'absolute',top:4,right:4,padding:10,cursor:'grab',zIndex:2,color:R2,fontSize:18,lineHeight:1,touchAction:'none',userSelect:'none'}}
+                    onTouchStart={onDragStart(idx)}
+                    onTouchMove={onDragMove}
+                    onTouchEnd={onDragEnd}
+                  >⠿</div>
+                )}
+                <div style={{fontFamily:FF,fontSize:13,fontWeight:700,color:fullyMuted?R3:R,letterSpacing:0.5,lineHeight:1.3,textTransform:'uppercase',paddingRight:editMode?30:0}}>{sn(ch.name)}</div>
+                {editMode?(
+                  <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:5,padding:'8px 0 4px'}}>
+                    {hasLooks?looks.map(lk=>{
+                      const m=isMuted(ch.name,lk);
+                      return(
+                        <button key={lk}
+                          onTouchStart={e=>e.stopPropagation()}
+                          onClick={e=>{e.stopPropagation();toggleMute(ch.name,lk);}}
+                          style={{fontFamily:FF,fontSize:9,fontWeight:700,letterSpacing:1,padding:'5px 8px',border:`1px solid ${m?R3:R2}`,borderRadius:3,cursor:'pointer',textTransform:'uppercase',background:m?R3:'transparent',color:m?R2:R,display:'flex',alignItems:'center',gap:5,WebkitTapHighlightColor:'transparent'}}
+                        >
+                          <span style={{width:6,height:6,borderRadius:'50%',background:m?R3:R,display:'inline-block',flexShrink:0}}/>
+                          {lk}: {m?'OFF':'ON'}
+                        </button>
+                      );
+                    }):(()=>{const m=isMuted(ch.name,null);return(
+                      <button
+                        onTouchStart={e=>e.stopPropagation()}
+                        onClick={e=>{e.stopPropagation();toggleMute(ch.name,null);}}
+                        style={{fontFamily:FF,fontSize:9,fontWeight:700,letterSpacing:1,padding:'5px 8px',border:`1px solid ${m?R3:R2}`,borderRadius:3,cursor:'pointer',textTransform:'uppercase',background:m?R3:'transparent',color:m?R2:R,display:'flex',alignItems:'center',gap:5,WebkitTapHighlightColor:'transparent'}}
+                      >
+                        <span style={{width:6,height:6,borderRadius:'50%',background:m?R3:R,display:'inline-block',flexShrink:0}}/>
+                        {m?'MUTED':'TRACKING'}
+                      </button>
+                    );})()}
+                  </div>
+                ):(
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',flex:1,padding:'8px 0'}}>
+                    {SK[ch.name]?<div style={{width:64,height:64,borderRadius:'50%',overflow:'hidden',border:`2px solid ${R3}`}}><img src={SK[ch.name]} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/></div>:<IcUser size={40} color={R} style={{opacity:0.12}}/>}
+                  </div>
+                )}
+                {!editMode&&<div style={{fontFamily:FF,fontSize:24,fontWeight:800,color:fullyMuted?R3:R,lineHeight:1,opacity:(dn2===0&&!fullyMuted)?0.25:1}}>{dn2}/{tt}</div>}
               </div>
             );
           })}
@@ -289,6 +399,26 @@ export default function App(){
   // BLACK CANVAS VIEWS
   return(
     <div style={{background:BG,minHeight:'100vh'}}>
+    {syncPopup&&(
+      <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.96)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{background:'#111',border:`1px solid ${R3}`,padding:20,maxWidth:400,width:'100%',maxHeight:'70vh',display:'flex',flexDirection:'column'}}>
+          <div style={{fontFamily:FF,fontSize:13,fontWeight:700,letterSpacing:2,color:R,marginBottom:4,textTransform:'uppercase'}}>{unsynced.length} NEW ITEMS TO SYNC</div>
+          <div style={{fontFamily:FF,fontSize:10,color:R2,marginBottom:14,textTransform:'uppercase',letterSpacing:0.5}}>THESE WILL BE ADDED TO THE SHEET</div>
+          <div style={{overflowY:'auto',flex:1,marginBottom:14}}>
+            {unsynced.map(i=>(
+              <div key={i.id} style={{borderBottom:`1px solid ${R3}`,padding:'8px 0'}}>
+                <div style={{fontFamily:FF,fontSize:11,fontWeight:700,color:R,textTransform:'uppercase',letterSpacing:0.5}}>{sn(i.character)}</div>
+                <div style={{fontFamily:FF,fontSize:11,color:R2,textTransform:'uppercase',letterSpacing:0.3,marginTop:2}}>{i.item}{i.note?` — ${i.note}`:''}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setSyncPopup(false)} style={{flex:1,fontFamily:FF,fontSize:12,background:'transparent',color:R2,border:`1px solid ${R3}`,padding:'12px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1,WebkitTapHighlightColor:'transparent'}}>CANCEL</button>
+            <button onClick={doSync} disabled={syncing} style={{flex:1,fontFamily:FF,fontSize:12,background:R,color:BG,border:'none',padding:'12px',cursor:'pointer',fontWeight:700,borderRadius:0,textTransform:'uppercase',letterSpacing:1,opacity:syncing?0.5:1,WebkitTapHighlightColor:'transparent'}}>{syncing?'SYNCING...':'PROCESS'}</button>
+          </div>
+        </div>
+      </div>
+    )}
     <div style={{fontFamily:FF,color:R,maxWidth:480,margin:'0 auto'}}>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
       <div style={{padding:'16px 16px 12px',display:'flex',justifyContent:'space-between',alignItems:'baseline',borderBottom:`1px solid ${R3}`}}>
@@ -300,7 +430,7 @@ export default function App(){
           <div>
             <div style={{padding:'14px 16px',borderBottom:`1px solid ${R3}`}}>
               <input type="text" placeholder="SEARCH..." value={search} onChange={e=>setSearch(e.target.value)}
-                style={{width:'100%',background:BG,border:`1px solid ${R3}`,padding:14,color:R,fontSize:15,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.5}}/>
+                style={{width:'100%',background:BG,border:`1px solid ${R3}`,padding:14,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.5}}/>
             </div>
             {chars.map(ch=>{
               const fi=ch.items.filter(i=>!search||i.item.toLowerCase().includes(search.toLowerCase()));
@@ -321,7 +451,7 @@ export default function App(){
               ))}
             </div>
             {(()=>{
-              const fil=oTab==='open'?items.filter(i=>!i.done):items.filter(i=>i.ret);
+              const fil=oTab==='open'?activeItems.filter(i=>!i.done):activeItems.filter(i=>i.ret);
               const gm=new Map();fil.forEach(i=>{if(!gm.has(i.character))gm.set(i.character,[]);gm.get(i.character).push(i);});
               return Array.from(gm.entries()).map(([cn,ci])=>(
                 <div key={cn}>
@@ -334,11 +464,17 @@ export default function App(){
         )}
         {view==='settings'&&(
           <div style={{padding:16}}>
-            <div style={{fontFamily:FF,fontSize:16,fontWeight:700,letterSpacing:2,textTransform:'uppercase',marginBottom:14}}>GOOGLE SHEETS SYNC</div>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}><span style={{width:8,height:8,background:R2}}/><span style={{fontFamily:FF,fontSize:13,color:R2,fontWeight:600,textTransform:'uppercase',letterSpacing:1}}>DEMO MODE</span></div>
-            <div style={{fontFamily:FF,fontSize:13,color:R2,lineHeight:1.7,textTransform:'uppercase',letterSpacing:0.3,marginBottom:14}}>CONNECT TO YOUR GOOGLE SHEET FOR REAL-TIME TWO-WAY SYNC.</div>
-            <div style={{padding:'10px 14px',background:R3,fontFamily:FF,fontSize:11,color:R2,textTransform:'uppercase',letterSpacing:0.3,marginBottom:30,borderRadius:RD}}>SHEET: THE FACE SHORT FILM COSTUME DESIGN<br/>TAB: FINALIZED</div>
-            <div style={{borderTop:`1px solid ${R3}`,paddingTop:20}}>
+            <div style={{fontFamily:FF,fontSize:16,fontWeight:700,letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>GOOGLE SHEETS SYNC</div>
+            <div style={{fontFamily:FF,fontSize:12,color:R2,lineHeight:1.7,textTransform:'uppercase',letterSpacing:0.3,marginBottom:12}}>PASTE YOUR APPS SCRIPT WEB APP URL, THEN SYNC NEW ITEMS TO THE SHEET.</div>
+            <input type="url" placeholder="HTTPS://SCRIPT.GOOGLE.COM/..." value={syncUrl} onChange={e=>setSyncUrl(e.target.value)}
+              style={{width:'100%',background:BG,border:`1px solid ${R3}`,padding:14,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,letterSpacing:0.3,marginBottom:10}}/>
+            <button
+              onClick={()=>{if(unsynced.length===0)return;setSyncPopup(true);}}
+              style={{width:'100%',fontFamily:FF,fontSize:13,fontWeight:700,background:unsynced.length>0?R:'transparent',color:unsynced.length>0?BG:R2,border:`1px solid ${unsynced.length>0?R:R3}`,padding:'14px',cursor:unsynced.length>0?'pointer':'default',borderRadius:0,textTransform:'uppercase',letterSpacing:1,marginBottom:6,WebkitTapHighlightColor:'transparent'}}
+            >
+              {unsynced.length>0?`SYNC TO SHEETS (${unsynced.length} PENDING)`:'ALL ITEMS SYNCED'}
+            </button>
+            <div style={{borderTop:`1px solid ${R3}`,paddingTop:20,marginTop:16}}>
               <div style={{fontFamily:FF,fontSize:16,fontWeight:700,letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>RESET CHECKBOXES</div>
               <div style={{fontFamily:FF,fontSize:13,color:R2,marginBottom:16,lineHeight:1.6,textTransform:'uppercase',letterSpacing:0.3}}>UNCHECK ALL {tN} ITEMS. NOTES AND RETURN FLAGS STAY.</div>
               {!clr?(<button onClick={()=>setClr(true)} style={{fontFamily:FF,fontSize:14,background:'transparent',color:R,border:`1px solid ${R}`,padding:'14px 20px',cursor:'pointer',fontWeight:600,WebkitTapHighlightColor:'transparent',borderRadius:0,textTransform:'uppercase',letterSpacing:1}}>CLEAR ALL CHECKBOXES</button>
