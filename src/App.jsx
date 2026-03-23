@@ -82,6 +82,7 @@ const INIT = [
 ].map(x=>({id:x.id,character:x.c,actor:x.a,look:x.l,item:x.i,ret:x.r,done:x.d,note:x.n}));
 const ADMIN_CODE='wei2025';
 const MAX_INIT_ID=Math.max(...INIT.map(i=>i.id));
+const SYNC_URL=''; // ← PASTE YOUR APPS SCRIPT WEB APP URL HERE
 
 const SK = {
   "1.THE AMERICAN": "data:image/jpeg;base64,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",
@@ -163,19 +164,17 @@ export default function App(){
   const[showSk,setShowSk]=useState(false);
   const[mutedLooks,setMutedLooks]=useState(()=>{try{const s=localStorage.getItem('face_muted');if(s)return JSON.parse(s);}catch(e){}return{};});
   const[editMode,setEditMode]=useState(false);
-  const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'';}catch(e){return'';}});
   const[isAdmin,setIsAdmin]=useState(()=>{try{return localStorage.getItem('face_admin')==='1';}catch(e){return false;}});
   const[adminInput,setAdminInput]=useState('');
   const[pullStatus,setPullStatus]=useState('');
   const[pushing,setPushing]=useState(false);
-  const[pushSuccess,setPushSuccess]=useState(0);
+  const[pushSuccess,setPushSuccess]=useState(false);
   const[showSetup,setShowSetup]=useState(false);
   const lpTimer=useRef(null);
 
   // PERSISTENCE
   useEffect(()=>{try{localStorage.setItem('face_v9',JSON.stringify(items));}catch(e){}},[items]);
   useEffect(()=>{try{localStorage.setItem('face_muted',JSON.stringify(mutedLooks));}catch(e){};},[mutedLooks]);
-  useEffect(()=>{try{localStorage.setItem('face_syncurl',syncUrl);}catch(e){};},[syncUrl]);
   useEffect(()=>{try{localStorage.setItem('face_admin',isAdmin?'1':'0');}catch(e){};},[isAdmin]);
 
   // CALLBACKS
@@ -211,38 +210,36 @@ export default function App(){
 
 
   // SYNC
-  const mergePull=(local,sheet)=>{
-    if(!sheet||!sheet.length)return local;
-    const localMap=new Map(local.map(i=>[i.id,i]));
-    const sheetIds=new Set(sheet.map(i=>i.id));
-    const result=sheet.map(si=>{
-      const li=localMap.get(si.id);
-      return li?{...li,item:si.item||li.item,character:si.character,actor:si.actor||li.actor||'',look:si.look||null,note:si.note!==undefined?si.note:li.note}
-        :{id:si.id,character:si.character,actor:si.actor||'',look:si.look||null,item:si.item,ret:false,done:false,note:si.note||''};
-    });
-    local.filter(i=>i.id>MAX_INIT_ID&&!sheetIds.has(i.id)).forEach(i=>result.push(i));
+  const mergePull=(local,data)=>{
+    const added=data.added||[];
+    const notes=data.notes||{};
+    const localIds=new Set(local.map(i=>i.id));
+    const result=local.map(i=>({...i,note:notes[i.id]!==undefined?notes[i.id]:i.note}));
+    added.filter(si=>!localIds.has(si.id)).forEach(si=>result.push({id:si.id,character:si.character,actor:si.actor||'',look:si.look||null,item:si.item,ret:false,done:false,note:si.note||''}));
     return result;
   };
   const doPull=async()=>{
-    if(!syncUrl.trim()){setPullStatus('NO URL SET');return;}
+    if(!SYNC_URL){setPullStatus('NO URL SET');return;}
     setPullStatus('PULLING...');
     try{
-      const r=await fetch(syncUrl+'?t='+Date.now());
+      const r=await fetch(SYNC_URL+'?t='+Date.now());
       const data=await r.json();
-      if(data.items){setItems(p=>mergePull(p,data.items));setPullStatus('SYNCED ✓');}
-      else setPullStatus('ERROR');
+      setItems(p=>mergePull(p,data));
+      setPullStatus('SYNCED ✓');
     }catch(e){setPullStatus('ERROR');}
   };
   const doPush=async()=>{
-    if(!syncUrl.trim()){alert('PASTE YOUR APPS SCRIPT URL IN SETTINGS FIRST.');return;}
+    if(!SYNC_URL){alert('SET SYNC_URL IN CODE FIRST.');return;}
     setPushing(true);
     try{
-      await fetch(syncUrl,{method:'POST',mode:'no-cors',body:JSON.stringify({items:items.map(i=>({id:i.id,character:i.character,actor:i.actor||'',look:i.look||'',item:i.item,note:i.note||''}))})});
-      setPushSuccess(items.length);
-    }catch(err){alert('PUSH FAILED: '+err.message);}
+      const notes={};items.forEach(i=>{if(i.note)notes[i.id]=i.note;});
+      const added=items.filter(i=>i.id>MAX_INIT_ID).map(i=>({id:i.id,character:i.character,actor:i.actor||'',look:i.look||'',item:i.item,note:i.note||''}));
+      await fetch(SYNC_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({notes,added})});
+      setPushSuccess(true);
+    }catch(err){alert('SYNC FAILED: '+err.message);}
     setPushing(false);
   };
-  useEffect(()=>{if(!isAdmin&&syncUrl)doPull();},[]);
+  useEffect(()=>{if(!isAdmin&&SYNC_URL)doPull();},[]);
 
   // NAV
   const Nav=()=>(
@@ -401,11 +398,11 @@ export default function App(){
   // BLACK CANVAS VIEWS
   return(
     <div style={{background:BG,minHeight:'100vh'}}>
-    {pushSuccess>0&&(
-      <div onTouchStart={()=>setPushSuccess(0)} onClick={()=>setPushSuccess(0)} style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.96)',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20,cursor:'pointer'}}>
+    {pushSuccess&&(
+      <div onTouchStart={()=>setPushSuccess(false)} onClick={()=>setPushSuccess(false)} style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.96)',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20,cursor:'pointer'}}>
         <div style={{textAlign:'center'}}>
           <div style={{fontSize:48,lineHeight:1,marginBottom:16}}>✓</div>
-          <div style={{fontFamily:FF,fontSize:16,fontWeight:700,letterSpacing:2,color:R,textTransform:'uppercase',marginBottom:8}}>{pushSuccess} ITEMS PUSHED TO SHEET</div>
+          <div style={{fontFamily:FF,fontSize:16,fontWeight:700,letterSpacing:2,color:R,textTransform:'uppercase',marginBottom:8}}>DATA SYNCED TO SHEET</div>
           <div style={{fontFamily:FF,fontSize:11,color:R2,letterSpacing:1,textTransform:'uppercase'}}>TAP ANYWHERE TO DISMISS</div>
         </div>
       </div>
@@ -466,41 +463,28 @@ export default function App(){
                   <div style={{marginBottom:6,color:R,fontWeight:700}}>ONE-TIME SETUP (ADMIN ONLY):</div>
                   <div>1. CREATE A NEW GOOGLE SHEET</div>
                   <div>2. EXTENSIONS → APPS SCRIPT</div>
-                  <div>3. PASTE CODE FROM google-apps-script.js (IN PROJECT FOLDER)</div>
+                  <div>3. PASTE CODE FROM google-apps-script.js</div>
                   <div>4. DEPLOY → NEW DEPLOYMENT</div>
                   <div style={{paddingLeft:14}}>• TYPE: WEB APP</div>
                   <div style={{paddingLeft:14}}>• EXECUTE AS: ME</div>
                   <div style={{paddingLeft:14}}>• WHO HAS ACCESS: ANYONE</div>
-                  <div>5. COPY THE WEB APP URL</div>
-                  <div>6. PASTE URL BELOW IN EACH DEVICE</div>
-                  <div style={{marginTop:8,color:R,fontWeight:700}}>PUSH = ADMIN OVERWRITES SHEET WITH ALL ITEMS</div>
-                  <div style={{color:R,fontWeight:700}}>PULL = LISTENERS FETCH UPDATES FROM SHEET</div>
-                  <div style={{marginTop:6,color:R2}}>CHECKBOXES ARE LOCAL-ONLY. NOTES + ITEMS SYNC.</div>
+                  <div>5. COPY WEB APP URL → SET SYNC_URL IN CODE</div>
+                  <div style={{marginTop:8,color:R,fontWeight:700}}>SYNC = PUSH NOTES + ADDED ITEMS TO SHEET</div>
+                  <div style={{marginTop:4,color:R2}}>CHECKBOXES ARE LOCAL-ONLY. NOTES + ADDED ITEMS SYNC.</div>
                 </div>
               )}
             </div>
 
-            {/* SYNC URL */}
-            <div style={{fontFamily:FF,fontSize:13,fontWeight:700,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>APPS SCRIPT URL</div>
-            <input type="url" placeholder="HTTPS://SCRIPT.GOOGLE.COM/..." value={syncUrl} onChange={e=>setSyncUrl(e.target.value)}
-              style={{width:'100%',background:BG,border:`1px solid ${R3}`,padding:14,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,letterSpacing:0.3,marginBottom:14}}/>
-
-            {/* ADMIN: PUSH */}
+            {/* SYNC BUTTON */}
+            <button onClick={isAdmin?doPush:undefined} disabled={!isAdmin||pushing}
+              style={{width:'100%',fontFamily:FF,fontSize:13,fontWeight:700,background:isAdmin?R:'transparent',color:isAdmin?BG:R3,border:`1px solid ${isAdmin?R:R3}`,padding:'14px',cursor:isAdmin?'pointer':'default',borderRadius:0,textTransform:'uppercase',letterSpacing:1,marginBottom:6,WebkitTapHighlightColor:'transparent',opacity:pushing?0.5:1}}>
+              {pushing?'SYNCING...':'SYNC'}
+            </button>
             {isAdmin?(
-              <div>
-                <button onClick={doPush} disabled={pushing||!syncUrl.trim()}
-                  style={{width:'100%',fontFamily:FF,fontSize:13,fontWeight:700,background:syncUrl.trim()?R:'transparent',color:syncUrl.trim()?BG:R2,border:`1px solid ${syncUrl.trim()?R:R3}`,padding:'14px',cursor:syncUrl.trim()?'pointer':'default',borderRadius:0,textTransform:'uppercase',letterSpacing:1,marginBottom:6,WebkitTapHighlightColor:'transparent',opacity:pushing?0.5:1}}>
-                  {pushing?'PUSHING...':'PUSH ALL TO SHEET'}
-                </button>
-                <div style={{fontFamily:FF,fontSize:10,color:R2,letterSpacing:0.5,textTransform:'uppercase',marginBottom:18}}>OVERWRITES SHEET WITH {items.length} ITEMS</div>
-              </div>
+              <div style={{fontFamily:FF,fontSize:10,color:R2,letterSpacing:0.5,textTransform:'uppercase',marginBottom:18}}>PUSHES NOTES + {items.filter(i=>i.id>MAX_INIT_ID).length} ADDED ITEM{items.filter(i=>i.id>MAX_INIT_ID).length!==1?'S':''} TO SHEET</div>
             ):(
-              <div>
-                <button onClick={doPull} disabled={!syncUrl.trim()}
-                  style={{width:'100%',fontFamily:FF,fontSize:13,fontWeight:700,background:'transparent',color:R,border:`1px solid ${R}`,padding:'14px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1,marginBottom:6,WebkitTapHighlightColor:'transparent'}}>
-                  PULL UPDATES NOW
-                </button>
-                {pullStatus&&<div style={{fontFamily:FF,fontSize:10,color:pullStatus.includes('✓')?R:R2,letterSpacing:0.5,textTransform:'uppercase',marginBottom:12}}>{pullStatus}</div>}
+              <div style={{fontFamily:FF,fontSize:10,color:R3,letterSpacing:0.5,textTransform:'uppercase',marginBottom:6}}>
+                {pullStatus?`LAST PULL: ${pullStatus}`:'AUTO-SYNCS ON APP OPEN'}
               </div>
             )}
 
