@@ -110,13 +110,13 @@ const IcGear=p=><Ic {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65
 const IcBack=p=><Ic {...p}><path d="M19 12H5M12 19l-7-7 7-7"/></Ic>;
 const IcPlus=p=><Ic {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Ic>;
 
-const Row=({item,onToggle,onNote,exp,onExp})=>{
+const Row=({item,onToggle,onNote,exp,onExp,disabled})=>{
   const ref=useRef(null);
   useEffect(()=>{if(exp&&ref.current)ref.current.focus();},[exp]);
   return(
-    <div style={{borderBottom:`1px solid ${R3}`}}>
-      <div style={{display:'flex',alignItems:'stretch',minHeight:60,cursor:'pointer',WebkitTapHighlightColor:'transparent'}} onClick={onExp}>
-        <div onClick={e=>{e.stopPropagation();onToggle();}} style={{width:60,minWidth:60,display:'flex',alignItems:'center',justifyContent:'center',borderRight:`1px solid ${R3}`,background:item.done?R:'transparent',cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>
+    <div style={{borderBottom:`1px solid ${R3}`,opacity:disabled?0.35:1,pointerEvents:disabled?'none':'auto'}}>
+      <div style={{display:'flex',alignItems:'stretch',minHeight:60,cursor:disabled?'default':'pointer',WebkitTapHighlightColor:'transparent'}} onClick={disabled?undefined:onExp}>
+        <div onClick={disabled?undefined:e=>{e.stopPropagation();onToggle();}} style={{width:60,minWidth:60,display:'flex',alignItems:'center',justifyContent:'center',borderRight:`1px solid ${R3}`,background:item.done?R:'transparent',cursor:disabled?'default':'pointer',WebkitTapHighlightColor:'transparent'}}>
           {item.done?<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12.5L10 18L19 6" stroke={BG} strokeWidth="3" strokeLinecap="square"/></svg>
           :<div style={{width:22,height:22,border:`2px solid ${R3}`}}/>}
         </div>
@@ -128,7 +128,7 @@ const Row=({item,onToggle,onNote,exp,onExp})=>{
           {item.note&&!exp&&<div style={{color:R2,fontSize:11,fontFamily:FF,marginTop:4,textTransform:'uppercase',letterSpacing:0.3}}>{item.note.length>35?item.note.slice(0,35)+'...':item.note}</div>}
         </div>
       </div>
-      {exp&&(
+      {exp&&!disabled&&(
         <div style={{padding:'0 14px 12px 74px'}}>
           <textarea ref={ref} value={item.note} onChange={e=>onNote(e.target.value)} placeholder="ADD NOTE..." rows={2}
             style={{width:'100%',background:R3,border:`1px solid ${R2}`,padding:'12px',color:R,fontSize:16,fontFamily:FF,resize:'none',outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.3,lineHeight:1.5}}/>
@@ -192,12 +192,13 @@ export default function App(){
 
   // DERIVED
   const chars=getChars(items);
-  const orderedChars=charOrder?[...chars].sort((a,b)=>{const ai=charOrder.indexOf(a.name),bi=charOrder.indexOf(b.name);return(ai<0?999:ai)-(bi<0?999:bi);}):chars;
+  const isCharFullyMuted=ch=>{const lks=Array.from(ch.looks);return lks.length>0?lks.every(lk=>isMuted(ch.name,lk)):isMuted(ch.name,null);};
+  const orderedChars=(()=>{const base=charOrder?[...chars].sort((a,b)=>{const ai=charOrder.indexOf(a.name),bi=charOrder.indexOf(b.name);return(ai<0?999:ai)-(bi<0?999:bi);}):chars;return[...base.filter(ch=>!isCharFullyMuted(ch)),...base.filter(ch=>isCharFullyMuted(ch))];})();
   const activeItems=items.filter(isActive);
   const dN=activeItems.filter(i=>i.done).length,tN=activeItems.length,oN=tN-dN,rN=activeItems.filter(i=>i.ret).length;
   const unsynced=items.filter(i=>i.synced===false);
   const go=v=>{setView(v);setSel(null);setExp(null);setSearch('');setAdding(null);setEditMode(false);};
-  const renderItems=list=>list.map(it=><Row key={it.id} item={it} onToggle={()=>tog(it.id)} onNote={n=>sNote(it.id,n)} exp={exp===it.id} onExp={()=>setExp(exp===it.id?null:it.id)}/>);
+  const renderItems=(list,disabled)=>list.map(it=><Row key={it.id} item={it} onToggle={()=>tog(it.id)} onNote={n=>sNote(it.id,n)} exp={exp===it.id} onExp={()=>setExp(exp===it.id?null:it.id)} disabled={disabled}/>);
 
   // LONG PRESS
   const startLp=()=>{lpTimer.current=setTimeout(()=>setEditMode(true),500);};
@@ -226,11 +227,10 @@ export default function App(){
     if(!syncUrl.trim()){alert('PASTE YOUR APPS SCRIPT URL IN SETTINGS FIRST.');return;}
     setSyncing(true);
     try{
-      const res=await fetch(syncUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:unsynced.map(i=>({character:i.character,look:i.look||'',item:i.item,note:i.note||''}))})});
-      if(!res.ok)throw new Error('bad response');
+      await fetch(syncUrl,{method:'POST',mode:'no-cors',body:JSON.stringify({items:unsynced.map(i=>({character:i.character,look:i.look||'',item:i.item,note:i.note||''}))})});
       setItems(p=>p.map(i=>i.synced===false?{...i,synced:true}:i));
       setSyncPopup(false);
-    }catch(err){alert('SYNC FAILED. CHECK URL AND SHEET DEPLOYMENT.');}
+    }catch(err){alert('SYNC FAILED: '+err.message);}
     setSyncing(false);
   };
 
@@ -274,15 +274,16 @@ export default function App(){
             <img src={skUrl} alt="" style={{maxWidth:'100%',maxHeight:'80vh',objectFit:'contain'}}/>
           </div>}
           {looks.length>0?looks.map(lk=>{
+            const lookMuted=isMuted(ch.name,lk);
             const li=ch.items.filter(i=>i.look===lk),ld=li.filter(i=>i.done).length;
-            return(<div key={lk}>
+            return(<div key={lk} style={{opacity:lookMuted?0.45:1}}>
               <div style={{padding:'12px 16px',background:R3,display:'flex',justifyContent:'space-between',alignItems:'baseline',borderBottom:`1px solid ${R3}`}}>
-                <span style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,color:R,textTransform:'uppercase'}}>{lk}</span>
-                <span style={{fontFamily:FF,fontSize:14,fontWeight:700,color:R}}>{ld}/{li.length}</span>
+                <span style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,color:lookMuted?R2:R,textTransform:'uppercase'}}>{lk}{lookMuted?' · MUTED':''}</span>
+                <span style={{fontFamily:FF,fontSize:14,fontWeight:700,color:lookMuted?R2:R}}>{ld}/{li.length}</span>
               </div>
-              {renderItems(li)}
+              {renderItems(li,lookMuted)}
             </div>);
-          }):(renderItems(ch.items))}
+          }):(renderItems(ch.items,isMuted(ch.name,null)))}
           {adding===ch.name?(
             <div style={{padding:'14px 16px',background:'#111',borderTop:`1px solid ${R3}`}}>
               <input type="text" placeholder="ITEM NAME..." value={ni} onChange={e=>setNi(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addIt(ch.name);}} autoFocus
@@ -335,7 +336,7 @@ export default function App(){
           {orderedChars.map((ch,idx)=>{
             const looks=Array.from(ch.looks);
             const hasLooks=looks.length>0;
-            const fullyMuted=hasLooks?looks.every(lk=>isMuted(ch.name,lk)):isMuted(ch.name,null);
+            const fullyMuted=isCharFullyMuted(ch);
             const visItems=hasLooks?ch.items.filter(i=>!isMuted(ch.name,i.look)):ch.items.filter(i=>!isMuted(ch.name,null));
             const dn2=visItems.filter(i=>i.done).length,tt=visItems.length;
             const isDragging=dragging===idx;
