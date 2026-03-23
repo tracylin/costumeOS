@@ -117,7 +117,7 @@ const Row=({item,onToggle,onNote,exp,onExp,disabled,isAdmin,onDelete})=>{
   useEffect(()=>{if(exp&&ref.current)ref.current.focus();},[exp]);
   return(
     <div style={{borderBottom:`1px solid ${R3}`,opacity:disabled?0.35:1,pointerEvents:disabled?'none':'auto'}}>
-      <div style={{display:'flex',alignItems:'stretch',minHeight:60,cursor:disabled?'default':'pointer',WebkitTapHighlightColor:'transparent'}} onClick={disabled?undefined:onExp}>
+      <div style={{display:'flex',alignItems:'stretch',minHeight:60,cursor:disabled?'default':isAdmin?'pointer':'default',WebkitTapHighlightColor:'transparent'}} onClick={disabled||!isAdmin?undefined:onExp}>
         <div onClick={disabled?undefined:e=>{e.stopPropagation();onToggle();}} style={{width:60,minWidth:60,display:'flex',alignItems:'center',justifyContent:'center',borderRight:`1px solid ${R3}`,background:item.done?R:'transparent',cursor:disabled?'default':'pointer',WebkitTapHighlightColor:'transparent'}}>
           {item.done?<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12.5L10 18L19 6" stroke={BG} strokeWidth="3" strokeLinecap="square"/></svg>
           :<div style={{width:22,height:22,border:`2px solid ${R3}`}}/>}
@@ -127,7 +127,7 @@ const Row=({item,onToggle,onNote,exp,onExp,disabled,isAdmin,onDelete})=>{
             <span style={{color:item.done?R3:R,textDecoration:item.done?'line-through':'none',fontSize:15,fontFamily:FF,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.3px',lineHeight:1.3}}>{item.item}</span>
             {item.ret&&<span style={{fontSize:9,fontWeight:700,fontFamily:FF,color:BG,background:R,padding:'2px 7px',letterSpacing:1}}>RTN</span>}
           </div>
-          {item.note&&!exp&&<div style={{color:R2,fontSize:11,fontFamily:FF,marginTop:4,textTransform:'uppercase',letterSpacing:0.3}}>{item.note.length>35?item.note.slice(0,35)+'...':item.note}</div>}
+          {item.note&&(isAdmin?(!exp&&<div style={{color:R2,fontSize:11,fontFamily:FF,marginTop:4,textTransform:'uppercase',letterSpacing:0.3}}>{item.note.length>35?item.note.slice(0,35)+'...':item.note}</div>):<div style={{color:R2,fontSize:11,fontFamily:FF,marginTop:4,textTransform:'uppercase',letterSpacing:0.3}}>{item.note}</div>)}
         </div>
         {onDelete&&<div onClick={e=>{e.stopPropagation();onDelete();}} style={{width:44,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',WebkitTapHighlightColor:'transparent',borderLeft:`1px solid ${R3}`,color:R2,fontSize:18,fontWeight:300}}>×</div>}
       </div>
@@ -170,6 +170,7 @@ export default function App(){
   const[pushSuccess,setPushSuccess]=useState(false);
   const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec';}catch(e){return'https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec';}});
   const[syncPreview,setSyncPreview]=useState(false);
+  const[addingLook,setAddingLook]=useState(null);
   const lpTimer=useRef(null);
 
   // PERSISTENCE
@@ -182,11 +183,11 @@ export default function App(){
   const tog=useCallback(id=>setItems(p=>p.map(i=>i.id===id?{...i,done:!i.done}:i)),[]);
   const sNote=useCallback((id,n)=>setItems(p=>p.map(i=>i.id===id?{...i,note:n}:i)),[]);
   const clrAll=useCallback(()=>{setItems(p=>p.map(i=>({...i,done:false})));setClr(false);},[]);
-  const addIt=useCallback(cn=>{
+  const addIt=useCallback((cn,lk=null)=>{
     if(!ni.trim())return;
     const s=items.find(i=>i.character===cn);
-    setItems(p=>[...p,{id:Math.max(...p.map(i=>i.id))+1,character:cn,actor:s?.actor||'',look:null,item:ni.trim(),ret:nr,done:false,note:''}]);
-    setNi('');setNr(false);setAdding(null);
+    setItems(p=>[...p,{id:Math.max(...p.map(i=>i.id))+1,character:cn,actor:s?.actor||'',look:lk,item:ni.trim(),ret:nr,done:false,note:''}]);
+    setNi('');setNr(false);setAdding(null);setAddingLook(null);
   },[items,ni,nr]);
 
   // MUTE HELPERS
@@ -201,7 +202,7 @@ export default function App(){
   const activeItems=items.filter(isActive);
   const dN=activeItems.filter(i=>i.done).length,tN=activeItems.length,oN=tN-dN,rN=activeItems.filter(i=>i.ret).length;
   const delItem=useCallback(id=>setItems(p=>p.filter(i=>i.id!==id)),[]);
-  const go=v=>{setView(v);setSel(null);setExp(null);setSearch('');setAdding(null);setEditMode(false);};
+  const go=v=>{setView(v);setSel(null);setExp(null);setSearch('');setAdding(null);setAddingLook(null);setEditMode(false);};
   const renderItems=(list,disabled)=>list.map(it=><Row key={it.id} item={it} onToggle={()=>tog(it.id)} onNote={n=>sNote(it.id,n)} exp={exp===it.id} onExp={()=>setExp(exp===it.id?null:it.id)} disabled={disabled} isAdmin={isAdmin} onDelete={isAdmin&&it.id>MAX_INIT_ID?()=>delItem(it.id):undefined}/>);
 
   // LONG PRESS
@@ -268,7 +269,7 @@ export default function App(){
         <div style={{background:R,padding:16,display:'flex',alignItems:'center',gap:14,position:'sticky',top:0,zIndex:10}}>
           <div onClick={()=>{setSel(null);setExp(null);setAdding(null);setShowSk(false);}} style={{cursor:'pointer',WebkitTapHighlightColor:'transparent',padding:4}}><IcBack size={22} color={BG}/></div>
           <div style={{flex:1}}>
-            <div style={{fontSize:17,fontWeight:700,color:BG,letterSpacing:1,textTransform:'uppercase'}}>{sn(ch.name)}</div>
+            <div style={{display:'flex',alignItems:'center',gap:8}}><div style={{fontSize:17,fontWeight:700,color:BG,letterSpacing:1,textTransform:'uppercase'}}>{sn(ch.name)}</div>{isAdmin&&<span style={{fontSize:9,fontWeight:700,fontFamily:FF,color:R,background:BG,padding:'2px 7px',letterSpacing:1}}>ADMIN</span>}</div>
             {ch.actor&&<div style={{fontSize:11,color:BG,opacity:0.4,letterSpacing:1,textTransform:'uppercase',marginTop:2}}>{ch.actor}</div>}
           </div>
           <div style={{fontSize:26,fontWeight:800,color:BG,letterSpacing:-1}}>{dn}/{ch.items.length}</div>
@@ -282,42 +283,54 @@ export default function App(){
           {showSk&&skUrl&&<div onClick={()=>setShowSk(false)} style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.95)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:20,cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>
             <img src={skUrl} alt="" style={{maxWidth:'100%',maxHeight:'80vh',objectFit:'contain'}}/>
           </div>}
-          {looks.length>0?([
-            ...looks.map(lk=>{
+          {looks.length>0?looks.map(lk=>{
               const lookMuted=isMuted(ch.name,lk);
               const li=ch.items.filter(i=>i.look===lk),ld=li.filter(i=>i.done).length;
+              const isAddingHere=isAdmin&&adding===ch.name&&addingLook===lk;
               return(<div key={lk} style={{opacity:lookMuted?0.45:1}}>
                 <div style={{padding:'12px 16px',background:R3,display:'flex',justifyContent:'space-between',alignItems:'baseline',borderBottom:`1px solid ${R3}`}}>
                   <span style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,color:lookMuted?R2:R,textTransform:'uppercase'}}>{lk}{lookMuted?' · MUTED':''}</span>
                   <span style={{fontFamily:FF,fontSize:14,fontWeight:700,color:lookMuted?R2:R}}>{ld}/{li.length}</span>
                 </div>
                 {renderItems(li,lookMuted)}
+                {isAdmin&&(isAddingHere?(
+                  <div style={{padding:'12px 16px',background:'#111',borderTop:`1px solid ${R3}`}}>
+                    <input type="text" placeholder="ITEM NAME..." value={ni} onChange={e=>setNi(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addIt(ch.name,lk);}} autoFocus
+                      style={{width:'100%',background:BG,border:`1px solid ${R3}`,padding:12,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}/>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <button onClick={()=>setNr(!nr)} style={{fontFamily:FF,fontSize:11,fontWeight:700,padding:'8px 12px',cursor:'pointer',borderRadius:0,border:nr?'none':`1px solid ${R3}`,textTransform:'uppercase',letterSpacing:1,background:nr?R:'transparent',color:nr?BG:R2}}>RTN</button>
+                      <div style={{flex:1}}/>
+                      <button onClick={()=>{setAdding(null);setAddingLook(null);setNi('');setNr(false);}} style={{fontFamily:FF,fontSize:11,background:'transparent',color:R2,border:`1px solid ${R3}`,padding:'8px 12px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1}}>CANCEL</button>
+                      <button onClick={()=>addIt(ch.name,lk)} style={{fontFamily:FF,fontSize:11,background:R,color:BG,border:'none',padding:'8px 12px',cursor:'pointer',fontWeight:700,borderRadius:0,textTransform:'uppercase',letterSpacing:1,opacity:ni.trim()?1:0.3}}>ADD</button>
+                    </div>
+                  </div>
+                ):(
+                  <div onClick={()=>{setAdding(ch.name);setAddingLook(lk);}} style={{padding:'10px 16px',cursor:'pointer',WebkitTapHighlightColor:'transparent',display:'flex',alignItems:'center',gap:8,color:R2,borderTop:`1px solid ${R3}`}}>
+                    <IcPlus size={14} color={R2}/><span style={{fontFamily:FF,fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:1}}>ADD TO {lk}</span>
+                  </div>
+                ))}
               </div>);
-            }),
-            (()=>{const extra=ch.items.filter(i=>i.look===null);return extra.length>0?(<div key="__extra">
-              <div style={{padding:'12px 16px',background:R3,display:'flex',justifyContent:'space-between',alignItems:'baseline',borderBottom:`1px solid ${R3}`}}>
-                <span style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,color:R,textTransform:'uppercase'}}>ADDED</span>
-                <span style={{fontFamily:FF,fontSize:14,fontWeight:700,color:R}}>{extra.filter(i=>i.done).length}/{extra.length}</span>
-              </div>
-              {renderItems(extra,false)}
-            </div>):null;})(),
-          ]):(renderItems(ch.items,isMuted(ch.name,null)))}
-          {isAdmin&&(adding===ch.name?(
-            <div style={{padding:'14px 16px',background:'#111',borderTop:`1px solid ${R3}`}}>
-              <input type="text" placeholder="ITEM NAME..." value={ni} onChange={e=>setNi(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addIt(ch.name);}} autoFocus
-                style={{width:'100%',background:BG,border:`1px solid ${R3}`,padding:14,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.5,marginBottom:10}}/>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <button onClick={()=>setNr(!nr)} style={{fontFamily:FF,fontSize:12,fontWeight:700,padding:'10px 14px',cursor:'pointer',borderRadius:0,border:nr?'none':`1px solid ${R3}`,textTransform:'uppercase',letterSpacing:1,background:nr?R:'transparent',color:nr?BG:R2}}>RTN</button>
-                <div style={{flex:1}}/>
-                <button onClick={()=>{setAdding(null);setNi('');setNr(false);}} style={{fontFamily:FF,fontSize:12,background:'transparent',color:R2,border:`1px solid ${R3}`,padding:'10px 14px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1}}>CANCEL</button>
-                <button onClick={()=>addIt(ch.name)} style={{fontFamily:FF,fontSize:12,background:R,color:BG,border:'none',padding:'10px 14px',cursor:'pointer',fontWeight:700,borderRadius:0,textTransform:'uppercase',letterSpacing:1,opacity:ni.trim()?1:0.3}}>ADD</button>
-              </div>
-            </div>
-          ):(
-            <div onClick={()=>setAdding(ch.name)} style={{padding:16,cursor:'pointer',WebkitTapHighlightColor:'transparent',display:'flex',alignItems:'center',justifyContent:'center',gap:10,color:R2,borderTop:`1px solid ${R3}`}}>
-              <IcPlus size={18} color={R2}/><span style={{fontFamily:FF,fontSize:14,fontWeight:600,textTransform:'uppercase',letterSpacing:1}}>ADD ITEM</span>
-            </div>
-          ))}
+            }):(
+              <>
+              {renderItems(ch.items,isMuted(ch.name,null))}
+              {isAdmin&&(adding===ch.name?(
+                <div style={{padding:'14px 16px',background:'#111',borderTop:`1px solid ${R3}`}}>
+                  <input type="text" placeholder="ITEM NAME..." value={ni} onChange={e=>setNi(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addIt(ch.name,null);}} autoFocus
+                    style={{width:'100%',background:BG,border:`1px solid ${R3}`,padding:14,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.5,marginBottom:10}}/>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <button onClick={()=>setNr(!nr)} style={{fontFamily:FF,fontSize:12,fontWeight:700,padding:'10px 14px',cursor:'pointer',borderRadius:0,border:nr?'none':`1px solid ${R3}`,textTransform:'uppercase',letterSpacing:1,background:nr?R:'transparent',color:nr?BG:R2}}>RTN</button>
+                    <div style={{flex:1}}/>
+                    <button onClick={()=>{setAdding(null);setNi('');setNr(false);}} style={{fontFamily:FF,fontSize:12,background:'transparent',color:R2,border:`1px solid ${R3}`,padding:'10px 14px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1}}>CANCEL</button>
+                    <button onClick={()=>addIt(ch.name,null)} style={{fontFamily:FF,fontSize:12,background:R,color:BG,border:'none',padding:'10px 14px',cursor:'pointer',fontWeight:700,borderRadius:0,textTransform:'uppercase',letterSpacing:1,opacity:ni.trim()?1:0.3}}>ADD</button>
+                  </div>
+                </div>
+              ):(
+                <div onClick={()=>setAdding(ch.name)} style={{padding:16,cursor:'pointer',WebkitTapHighlightColor:'transparent',display:'flex',alignItems:'center',justifyContent:'center',gap:10,color:R2,borderTop:`1px solid ${R3}`}}>
+                  <IcPlus size={18} color={R2}/><span style={{fontFamily:FF,fontSize:14,fontWeight:600,textTransform:'uppercase',letterSpacing:1}}>ADD ITEM</span>
+                </div>
+              ))}
+              </>
+            )}
         </div>
         <Nav/>
       </div>
@@ -333,7 +346,7 @@ export default function App(){
       <div style={{fontFamily:FF,maxWidth:480,margin:'0 auto'}}>
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <div style={{padding:'18px 16px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div style={{fontSize:18,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:BG}}>THE FACE</div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}><div style={{fontSize:18,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:BG}}>THE FACE</div>{isAdmin&&<span style={{fontSize:9,fontWeight:700,fontFamily:FF,color:R,background:BG,padding:'2px 7px',letterSpacing:1}}>ADMIN</span>}</div>
           {editMode
             ?<button onClick={()=>setEditMode(false)} style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,background:BG,color:R,border:'none',padding:'8px 18px',cursor:'pointer',borderRadius:4,textTransform:'uppercase',WebkitTapHighlightColor:'transparent'}}>DONE</button>
             :<div style={{fontSize:28,fontWeight:800,letterSpacing:-1,color:BG}}>{dN}<span style={{opacity:0.3}}>/{tN}</span></div>
@@ -461,7 +474,7 @@ export default function App(){
     <div style={{fontFamily:FF,color:R,maxWidth:480,margin:'0 auto'}}>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
       <div style={{padding:'16px 16px 12px',display:'flex',justifyContent:'space-between',alignItems:'baseline',borderBottom:`1px solid ${R3}`}}>
-        <div style={{fontSize:18,fontWeight:700,letterSpacing:1,textTransform:'uppercase'}}>{view==='all'?'ALL ITEMS':view==='open'?'OUTSTANDING':'SETTINGS'}</div>
+        <div style={{display:'flex',alignItems:'center',gap:8}}><div style={{fontSize:18,fontWeight:700,letterSpacing:1,textTransform:'uppercase'}}>{view==='all'?'ALL ITEMS':view==='open'?'OUTSTANDING':'SETTINGS'}</div>{isAdmin&&<span style={{fontSize:9,fontWeight:700,fontFamily:FF,color:BG,background:R,padding:'2px 7px',letterSpacing:1}}>ADMIN</span>}</div>
         <div style={{fontSize:24,fontWeight:800,letterSpacing:-1}}>{dN}<span style={{opacity:0.25}}>/{tN}</span></div>
       </div>
       <div style={{paddingBottom:80}}>
