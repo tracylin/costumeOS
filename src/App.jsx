@@ -282,17 +282,26 @@ export default function App(){
           {showSk&&skUrl&&<div onClick={()=>setShowSk(false)} style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(10,10,10,0.95)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:20,cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>
             <img src={skUrl} alt="" style={{maxWidth:'100%',maxHeight:'80vh',objectFit:'contain'}}/>
           </div>}
-          {looks.length>0?looks.map(lk=>{
-            const lookMuted=isMuted(ch.name,lk);
-            const li=ch.items.filter(i=>i.look===lk),ld=li.filter(i=>i.done).length;
-            return(<div key={lk} style={{opacity:lookMuted?0.45:1}}>
+          {looks.length>0?([
+            ...looks.map(lk=>{
+              const lookMuted=isMuted(ch.name,lk);
+              const li=ch.items.filter(i=>i.look===lk),ld=li.filter(i=>i.done).length;
+              return(<div key={lk} style={{opacity:lookMuted?0.45:1}}>
+                <div style={{padding:'12px 16px',background:R3,display:'flex',justifyContent:'space-between',alignItems:'baseline',borderBottom:`1px solid ${R3}`}}>
+                  <span style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,color:lookMuted?R2:R,textTransform:'uppercase'}}>{lk}{lookMuted?' · MUTED':''}</span>
+                  <span style={{fontFamily:FF,fontSize:14,fontWeight:700,color:lookMuted?R2:R}}>{ld}/{li.length}</span>
+                </div>
+                {renderItems(li,lookMuted)}
+              </div>);
+            }),
+            (()=>{const extra=ch.items.filter(i=>i.look===null);return extra.length>0?(<div key="__extra">
               <div style={{padding:'12px 16px',background:R3,display:'flex',justifyContent:'space-between',alignItems:'baseline',borderBottom:`1px solid ${R3}`}}>
-                <span style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,color:lookMuted?R2:R,textTransform:'uppercase'}}>{lk}{lookMuted?' · MUTED':''}</span>
-                <span style={{fontFamily:FF,fontSize:14,fontWeight:700,color:lookMuted?R2:R}}>{ld}/{li.length}</span>
+                <span style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,color:R,textTransform:'uppercase'}}>ADDED</span>
+                <span style={{fontFamily:FF,fontSize:14,fontWeight:700,color:R}}>{extra.filter(i=>i.done).length}/{extra.length}</span>
               </div>
-              {renderItems(li,lookMuted)}
-            </div>);
-          }):(renderItems(ch.items,isMuted(ch.name,null)))}
+              {renderItems(extra,false)}
+            </div>):null;})(),
+          ]):(renderItems(ch.items,isMuted(ch.name,null)))}
           {isAdmin&&(adding===ch.name?(
             <div style={{padding:'14px 16px',background:'#111',borderTop:`1px solid ${R3}`}}>
               <input type="text" placeholder="ITEM NAME..." value={ni} onChange={e=>setNi(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addIt(ch.name);}} autoFocus
