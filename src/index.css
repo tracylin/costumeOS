@@ -4,8 +4,8 @@
   box-sizing: border-box;
 }
 body {
-  background: #fff;
-  overflow: hidden;
+  background: #000000;
+  overflow: scroll;
 }
 input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
