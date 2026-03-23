@@ -158,21 +158,16 @@ export default function App(){
   const[ni,setNi]=useState('');
   const[nr,setNr]=useState(false);
   const[showSk,setShowSk]=useState(false);
-  const[charOrder,setCharOrder]=useState(()=>{try{const s=localStorage.getItem('face_charorder');if(s)return JSON.parse(s);}catch(e){}return null;});
   const[mutedLooks,setMutedLooks]=useState(()=>{try{const s=localStorage.getItem('face_muted');if(s)return JSON.parse(s);}catch(e){}return{};});
   const[editMode,setEditMode]=useState(false);
-  const[dragging,setDragging]=useState(null);
   const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'';}catch(e){return'';}});
   const[syncPopup,setSyncPopup]=useState(false);
   const[syncing,setSyncing]=useState(false);
   const[syncSuccess,setSyncSuccess]=useState(0);
   const lpTimer=useRef(null);
-  const dragIdx=useRef(null);
-  const dragMoveHandler=useRef(null);
 
   // PERSISTENCE
   useEffect(()=>{try{localStorage.setItem('face_v9',JSON.stringify(items));}catch(e){}},[items]);
-  useEffect(()=>{try{if(charOrder)localStorage.setItem('face_charorder',JSON.stringify(charOrder));}catch(e){};},[charOrder]);
   useEffect(()=>{try{localStorage.setItem('face_muted',JSON.stringify(mutedLooks));}catch(e){};},[mutedLooks]);
   useEffect(()=>{try{localStorage.setItem('face_syncurl',syncUrl);}catch(e){};},[syncUrl]);
 
@@ -195,7 +190,7 @@ export default function App(){
   // DERIVED
   const chars=getChars(items);
   const isCharFullyMuted=ch=>{const lks=Array.from(ch.looks);return lks.length>0?lks.every(lk=>isMuted(ch.name,lk)):isMuted(ch.name,null);};
-  const orderedChars=(()=>{const base=charOrder?[...chars].sort((a,b)=>{const ai=charOrder.indexOf(a.name),bi=charOrder.indexOf(b.name);return(ai<0?999:ai)-(bi<0?999:bi);}):chars;return[...base.filter(ch=>!isCharFullyMuted(ch)),...base.filter(ch=>isCharFullyMuted(ch))];})();
+  const orderedChars=[...chars.filter(ch=>!isCharFullyMuted(ch)),...chars.filter(ch=>isCharFullyMuted(ch))];
   const activeItems=items.filter(isActive);
   const dN=activeItems.filter(i=>i.done).length,tN=activeItems.length,oN=tN-dN,rN=activeItems.filter(i=>i.ret).length;
   const unsynced=items.filter(i=>i.synced===false);
@@ -206,29 +201,7 @@ export default function App(){
   const startLp=()=>{lpTimer.current=setTimeout(()=>setEditMode(true),500);};
   const cancelLp=()=>clearTimeout(lpTimer.current);
 
-  // DRAG REORDER — native non-passive listener so e.preventDefault() stops page scroll
-  const onDragStart=idx=>e=>{
-    dragIdx.current=idx;setDragging(idx);
-    dragMoveHandler.current=ev=>{
-      ev.preventDefault();
-      if(dragIdx.current==null)return;
-      const touch=ev.touches[0];
-      const el=document.elementFromPoint(touch.clientX,touch.clientY);
-      const tile=el?.closest('[data-ti]');
-      if(!tile)return;
-      const ti=parseInt(tile.dataset.ti);
-      if(isNaN(ti)||ti===dragIdx.current)return;
-      const from=dragIdx.current;
-      dragIdx.current=ti;
-      setDragging(ti);
-      setCharOrder(prev=>{const base=prev||chars.map(c=>c.name);const arr=[...base];const[m]=arr.splice(from,1);arr.splice(ti,0,m);return arr;});
-    };
-    document.addEventListener('touchmove',dragMoveHandler.current,{passive:false});
-  };
-  const onDragEnd=()=>{
-    setDragging(null);dragIdx.current=null;
-    if(dragMoveHandler.current){document.removeEventListener('touchmove',dragMoveHandler.current);dragMoveHandler.current=null;}
-  };
+
 
   // SYNC
   const doSync=async()=>{
@@ -341,7 +314,6 @@ export default function App(){
             ))}
           </div>
         )}
-        {editMode&&<div style={{padding:'0 10px 8px',fontFamily:FF,fontSize:10,color:BG,opacity:0.6,letterSpacing:1,textTransform:'uppercase',textAlign:'center'}}>LONG PRESS ⠿ TO DRAG · TAP LOOK TO MUTE</div>}
         <div style={{padding:'0 10px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,paddingBottom:72}}>
           {orderedChars.map((ch,idx)=>{
             const looks=Array.from(ch.looks);
@@ -349,13 +321,12 @@ export default function App(){
             const fullyMuted=isCharFullyMuted(ch);
             const visItems=hasLooks?ch.items.filter(i=>!isMuted(ch.name,i.look)):ch.items.filter(i=>!isMuted(ch.name,null));
             const dn2=visItems.filter(i=>i.done).length,tt=visItems.length;
-            const isDragging=dragging===idx;
             return(
-              <div key={ch.name} data-ti={idx}
-                style={{background:BG,borderRadius:RD,padding:14,cursor:editMode?(isDragging?'grabbing':'grab'):'pointer',WebkitTapHighlightColor:'transparent',minHeight:140,display:'flex',flexDirection:'column',justifyContent:'space-between',position:'relative',opacity:fullyMuted?0.38:1,transition:'opacity 0.2s,transform 0.15s,box-shadow 0.15s',animation:editMode?`jiggle 0.22s ease-in-out ${idx*0.035}s infinite alternate`:'none',transform:isDragging?'scale(1.06)':'scale(1)',boxShadow:isDragging?'0 10px 30px rgba(0,0,0,0.6)':'',userSelect:'none',WebkitUserSelect:'none'}}
-                onTouchStart={editMode?onDragStart(idx):startLp}
+              <div key={ch.name}
+                style={{background:BG,borderRadius:RD,padding:14,cursor:'pointer',WebkitTapHighlightColor:'transparent',minHeight:140,display:'flex',flexDirection:'column',justifyContent:'space-between',position:'relative',opacity:fullyMuted?0.38:1,transition:'opacity 0.2s',animation:editMode?`jiggle 0.22s ease-in-out ${idx*0.035}s infinite alternate`:'none'}}
+                onTouchStart={editMode?undefined:startLp}
                 onTouchMove={editMode?undefined:cancelLp}
-                onTouchEnd={editMode?onDragEnd:cancelLp}
+                onTouchEnd={editMode?undefined:cancelLp}
                 onClick={editMode?undefined:()=>setSel(ch.name)}
               >
                 <div style={{fontFamily:FF,fontSize:13,fontWeight:700,color:fullyMuted?R3:R,letterSpacing:0.5,lineHeight:1.3,textTransform:'uppercase'}}>{sn(ch.name)}</div>
