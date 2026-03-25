@@ -113,7 +113,7 @@ const IcGear=p=><Ic {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65
 const IcBack=p=><Ic {...p}><path d="M19 12H5M12 19l-7-7 7-7"/></Ic>;
 const IcPlus=p=><Ic {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Ic>;
 
-const Row=({item,onToggle,onNote,exp,onExp,disabled,isAdmin,onDelete,onEditItem})=>{
+const Row=({item,onToggle,onNote,exp,onExp,disabled,isAdmin,onDelete})=>{
   const ref=useRef(null);
   useEffect(()=>{if(exp&&ref.current)ref.current.focus();},[exp]);
   return(
@@ -134,7 +134,6 @@ const Row=({item,onToggle,onNote,exp,onExp,disabled,isAdmin,onDelete,onEditItem}
       </div>
       {exp&&!disabled&&isAdmin&&(
         <div style={{padding:'0 14px 12px 74px'}}>
-          {onEditItem&&<input type="text" value={item.item} onChange={e=>onEditItem(e.target.value)} style={{width:'100%',background:R3,border:`1px solid ${R2}`,padding:'12px',color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.3,lineHeight:1.5,marginBottom:8}}/>}
           <textarea ref={ref} value={item.note} onChange={e=>onNote(e.target.value)} placeholder="ADD NOTE..." rows={2}
             style={{width:'100%',background:R3,border:`1px solid ${R2}`,padding:'12px',color:R,fontSize:16,fontFamily:FF,resize:'none',outline:'none',boxSizing:'border-box',borderRadius:0,textTransform:'uppercase',letterSpacing:0.3,lineHeight:1.5}}/>
         </div>
@@ -204,9 +203,8 @@ export default function App(){
   const activeItems=items.filter(isActive);
   const dN=activeItems.filter(i=>i.done).length,tN=activeItems.length,oN=tN-dN,rN=activeItems.filter(i=>i.ret).length;
   const delItem=useCallback(id=>{if(confirm('DELETE THIS ITEM?'))setItems(p=>p.filter(i=>i.id!==id));},[]);
-  const editItem=useCallback((id,v)=>setItems(p=>p.map(i=>i.id===id?{...i,item:v}:i)),[]);
   const go=v=>{setView(v);setSel(null);setExp(null);setSearch('');setAdding(null);setAddingLook(null);setEditMode(false);};
-  const renderItems=(list,disabled)=>list.map(it=><Row key={it.id} item={it} onToggle={()=>tog(it.id)} onNote={n=>sNote(it.id,n)} exp={exp===it.id} onExp={()=>setExp(exp===it.id?null:it.id)} disabled={disabled} isAdmin={isAdmin} onDelete={isAdmin?()=>delItem(it.id):undefined} onEditItem={isAdmin?(v)=>editItem(it.id,v):undefined}/>);
+  const renderItems=(list,disabled)=>list.map(it=><Row key={it.id} item={it} onToggle={()=>tog(it.id)} onNote={n=>sNote(it.id,n)} exp={exp===it.id} onExp={()=>setExp(exp===it.id?null:it.id)} disabled={disabled} isAdmin={isAdmin} onDelete={isAdmin?()=>delItem(it.id):undefined}/>);
 
   // LONG PRESS
   const startLp=()=>{lpTimer.current=setTimeout(()=>setEditMode(true),500);};
