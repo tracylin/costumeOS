@@ -171,8 +171,13 @@ export default function App(){
   const[pushSuccess,setPushSuccess]=useState(false);
   const[syncUrl,setSyncUrl]=useState(()=>{try{return localStorage.getItem('face_syncurl')||'https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec';}catch(e){return'https://script.google.com/macros/s/AKfycby6p3tSc00LgaalkR3u2WwwY1nkS3NICqwT-PYalsVYBdoVHnOvueiqgoILDQCpQ8pv/exec';}});
   const[syncPreview,setSyncPreview]=useState(false);
+  const[syncLog,setSyncLog]=useState(null);
+  const[syncLogOpen,setSyncLogOpen]=useState(false);
   const[addingLook,setAddingLook]=useState(null);
   const lpTimer=useRef(null);
+  const swipeRef=useRef({x:0,y:0});
+  const onSwipeStart=useCallback(e=>{const t=e.touches[0];swipeRef.current={x:t.clientX,y:t.clientY};},[]);
+  const onSwipeEnd=useCallback(e=>{const t=e.changedTouches[0];const dx=t.clientX-swipeRef.current.x;const dy=t.clientY-swipeRef.current.y;if(dx>80&&Math.abs(dy)<80){setSel(null);setExp(null);setAdding(null);setShowSk(false);}},[]);
 
   // PERSISTENCE
   useEffect(()=>{try{localStorage.setItem('face_v9',JSON.stringify(items));}catch(e){}},[items]);
@@ -247,7 +252,10 @@ export default function App(){
       const added=items.filter(i=>i.id>MAX_INIT_ID).map(i=>({id:i.id,character:i.character,actor:i.actor||'',look:i.look||'',item:i.item,note:i.note||''}));
       const currentIds=new Set(items.map(i=>i.id));
       const deleted=INIT.map(i=>i.id).filter(id=>!currentIds.has(id));
+      const notesWithContent=items.filter(i=>i.note);
+      const deletedItems=deleted.map(id=>INIT.find(i=>i.id===id)).filter(Boolean);
       await fetch(syncUrl.trim(),{method:'POST',mode:'no-cors',body:JSON.stringify({notes,added,deleted})});
+      setSyncLog({time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),added,deletedItems,notesWithContent});
       setPushSuccess(true);
     }catch(err){alert('SYNC FAILED: '+err.message);}
     setPushing(false);
@@ -258,9 +266,6 @@ export default function App(){
   // NAV
   const Nav=()=>(
     <div style={{position:'fixed',bottom:0,left:0,right:0,background:BG,zIndex:100,borderTop:`1px solid ${R3}`}}>
-      {!isAdmin&&pullStatus&&(
-        <div style={{maxWidth:480,margin:'0 auto',padding:'3px 12px',fontFamily:FF,fontSize:8,color:R3,letterSpacing:1,textTransform:'uppercase',textAlign:'center'}}>{pullStatus}</div>
-      )}
       <div style={{maxWidth:480,margin:'0 auto',display:'flex'}}>
         <NavBtn active={view==='chars'&&!sel} Icon={IcUser} label="CHARS" onClick={()=>go('chars')}/>
         <NavBtn active={view==='all'} Icon={IcList} label="ALL" onClick={()=>go('all')}/>
@@ -277,7 +282,7 @@ export default function App(){
     if(!ch){setSel(null);return null;}
     const looks=Array.from(ch.looks),dn=ch.items.filter(i=>i.done).length,skUrl=SK[ch.name];
     return(
-      <div style={{background:BG,minHeight:'100vh'}}>
+      <div style={{background:BG,minHeight:'100vh'}} onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
       <div style={{fontFamily:FF,maxWidth:480,margin:'0 auto'}}>
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <div style={{background:R,padding:16,display:'flex',alignItems:'center',gap:14,position:'sticky',top:0,zIndex:10}}>
@@ -363,7 +368,9 @@ export default function App(){
           <div style={{display:'flex',alignItems:'center',gap:8}}><div style={{fontSize:18,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:BG}}>THE FACE</div>{isAdmin&&<span style={{fontSize:9,fontWeight:700,fontFamily:FF,color:R,background:BG,padding:'2px 7px',letterSpacing:1}}>ADMIN</span>}</div>
           {editMode
             ?<button onClick={()=>setEditMode(false)} style={{fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:2,background:BG,color:R,border:'none',padding:'8px 18px',cursor:'pointer',borderRadius:4,textTransform:'uppercase',WebkitTapHighlightColor:'transparent'}}>DONE</button>
-            :<div style={{fontSize:28,fontWeight:800,letterSpacing:-1,color:BG}}>{dN}<span style={{opacity:0.3}}>/{tN}</span></div>
+            :isAdmin
+              ?<div style={{fontSize:28,fontWeight:800,letterSpacing:-1,color:BG}}>{dN}<span style={{opacity:0.3}}>/{tN}</span></div>
+              :<div style={{fontFamily:FF,fontSize:9,color:BG,opacity:0.4,letterSpacing:0.5,textTransform:'uppercase'}}>{pullStatus||'CREW'}</div>
           }
         </div>
         {!editMode&&(
@@ -500,7 +507,10 @@ export default function App(){
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
       <div style={{padding:'16px 16px 12px',display:'flex',justifyContent:'space-between',alignItems:'baseline',borderBottom:`1px solid ${R3}`}}>
         <div style={{display:'flex',alignItems:'center',gap:8}}><div style={{fontSize:18,fontWeight:700,letterSpacing:1,textTransform:'uppercase'}}>{view==='all'?'ALL ITEMS':view==='open'?'OUTSTANDING':'SETTINGS'}</div>{isAdmin&&<span style={{fontSize:9,fontWeight:700,fontFamily:FF,color:BG,background:R,padding:'2px 7px',letterSpacing:1}}>ADMIN</span>}</div>
-        <div style={{fontSize:24,fontWeight:800,letterSpacing:-1}}>{dN}<span style={{opacity:0.25}}>/{tN}</span></div>
+        {isAdmin
+          ?<div style={{fontSize:24,fontWeight:800,letterSpacing:-1}}>{dN}<span style={{opacity:0.25}}>/{tN}</span></div>
+          :<div style={{fontFamily:FF,fontSize:9,color:R3,letterSpacing:0.5,textTransform:'uppercase'}}>{pullStatus||'CREW'}</div>
+        }
       </div>
       <div style={{paddingBottom:80}}>
         {view==='all'&&(
@@ -541,35 +551,81 @@ export default function App(){
         )}
         {view==='settings'&&(
           <div style={{padding:16}}>
-            {/* SYNC BUTTON */}
-            <button onClick={isAdmin?()=>setSyncPreview(true):undefined} disabled={!isAdmin||pushing}
-              style={{width:'100%',fontFamily:FF,fontSize:13,fontWeight:700,background:isAdmin?R:'transparent',color:isAdmin?BG:R3,border:`1px solid ${isAdmin?R:R3}`,padding:'14px',cursor:isAdmin?'pointer':'default',borderRadius:0,textTransform:'uppercase',letterSpacing:1,marginBottom:6,WebkitTapHighlightColor:'transparent',opacity:pushing?0.5:1}}>
-              {pushing?'SYNCING...':'SYNC'}
-            </button>
-            {!isAdmin&&(
-              <div style={{fontFamily:FF,fontSize:10,color:R3,letterSpacing:0.5,textTransform:'uppercase',marginBottom:6}}>
-                {pullStatus?`LAST PULL: ${pullStatus}`:'AUTO-SYNCS ON APP OPEN'}
+            {/* SYNC BUTTON — admin only */}
+            {isAdmin&&(
+              <div style={{marginBottom:16}}>
+                <button onClick={()=>setSyncPreview(true)} disabled={pushing}
+                  style={{width:'100%',fontFamily:FF,fontSize:13,fontWeight:700,background:R,color:BG,border:'none',padding:'14px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1,WebkitTapHighlightColor:'transparent',opacity:pushing?0.5:1}}>
+                  {pushing?'SYNCING...':'SYNC'}
+                </button>
+                {/* SYNC LOG */}
+                {syncLog&&(
+                  <div style={{marginTop:8}}>
+                    <div onClick={()=>setSyncLogOpen(p=>!p)} style={{cursor:'pointer',WebkitTapHighlightColor:'transparent',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{fontFamily:FF,fontSize:10,color:R2,letterSpacing:0.5,textTransform:'uppercase'}}>LAST SYNC: {syncLog.time}</div>
+                      <div style={{fontFamily:FF,fontSize:10,color:R3,letterSpacing:0.5,textTransform:'uppercase'}}>{syncLogOpen?'HIDE':'DETAILS'}</div>
+                    </div>
+                    <div style={{fontFamily:FF,fontSize:9,color:R3,letterSpacing:0.5,textTransform:'uppercase',marginTop:4}}>
+                      {syncLog.notesWithContent.length} NOTES · {syncLog.added.length} ADDED · {syncLog.deletedItems.length} DELETED
+                    </div>
+                    {syncLogOpen&&(
+                      <div style={{marginTop:10,borderTop:`1px solid ${R3}`,paddingTop:10}}>
+                        {syncLog.added.length>0&&(
+                          <div style={{marginBottom:10}}>
+                            <div style={{fontFamily:FF,fontSize:9,fontWeight:700,color:R2,letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>ADDED</div>
+                            {syncLog.added.map(i=>(
+                              <div key={i.id} style={{fontFamily:FF,fontSize:10,color:R3,textTransform:'uppercase',letterSpacing:0.3,padding:'3px 0'}}>{sn(i.character)} — {i.item}</div>
+                            ))}
+                          </div>
+                        )}
+                        {syncLog.deletedItems.length>0&&(
+                          <div style={{marginBottom:10}}>
+                            <div style={{fontFamily:FF,fontSize:9,fontWeight:700,color:R2,letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>DELETED</div>
+                            {syncLog.deletedItems.map(i=>(
+                              <div key={i.id} style={{fontFamily:FF,fontSize:10,color:R3,textTransform:'uppercase',letterSpacing:0.3,padding:'3px 0',textDecoration:'line-through'}}>{sn(i.character)} — {i.item}</div>
+                            ))}
+                          </div>
+                        )}
+                        {syncLog.notesWithContent.length>0&&(
+                          <div>
+                            <div style={{fontFamily:FF,fontSize:9,fontWeight:700,color:R2,letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>NOTES</div>
+                            {syncLog.notesWithContent.map(i=>(
+                              <div key={i.id} style={{padding:'3px 0'}}>
+                                <div style={{fontFamily:FF,fontSize:10,color:R3,textTransform:'uppercase',letterSpacing:0.3}}>{sn(i.character)} — {i.item}</div>
+                                <div style={{fontFamily:FF,fontSize:9,color:R2,letterSpacing:0.3,marginTop:1}}>{i.note}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* ADMIN MODE TOGGLE */}
-            <div style={{borderTop:`1px solid ${R3}`,paddingTop:20,marginBottom:20}}>
-              <div style={{fontFamily:FF,fontSize:13,fontWeight:700,letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>ADMIN MODE</div>
+            {/* MODE TOGGLE */}
+            <div style={{borderTop:isAdmin?`1px solid ${R3}`:'none',paddingTop:isAdmin?20:0,marginBottom:20}}>
+              <div style={{fontFamily:FF,fontSize:13,fontWeight:700,letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>MODE</div>
+              <div style={{display:'flex',border:`1px solid ${R3}`,marginBottom:10}}>
+                <div onClick={()=>{if(isAdmin)setIsAdmin(false);}} style={{flex:1,padding:'12px 0',textAlign:'center',fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:1,textTransform:'uppercase',cursor:'pointer',WebkitTapHighlightColor:'transparent',background:!isAdmin?R:'transparent',color:!isAdmin?BG:R3}}>CREW</div>
+                <div onClick={()=>{if(!isAdmin&&!adminInput)setAdminInput(' ');}} style={{flex:1,padding:'12px 0',textAlign:'center',fontFamily:FF,fontSize:12,fontWeight:700,letterSpacing:1,textTransform:'uppercase',cursor:'pointer',WebkitTapHighlightColor:'transparent',background:isAdmin?R:'transparent',color:isAdmin?BG:R3}}>ADMIN</div>
+              </div>
               {isAdmin?(
+                <div style={{fontFamily:FF,fontSize:11,color:R2,textTransform:'uppercase',letterSpacing:0.3}}>ADMIN ACCESS ACTIVE. FULL EDITING ENABLED.</div>
+              ):adminInput?(
                 <div>
-                  <div style={{fontFamily:FF,fontSize:11,color:R2,marginBottom:12,textTransform:'uppercase',letterSpacing:0.3}}>ADMIN ACCESS ACTIVE. FULL EDITING ENABLED.</div>
-                  <button onClick={()=>setIsAdmin(false)} style={{fontFamily:FF,fontSize:13,background:'transparent',color:R2,border:`1px solid ${R3}`,padding:'12px 18px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1,WebkitTapHighlightColor:'transparent'}}>EXIT ADMIN MODE</button>
-                </div>
-              ):(
-                <div>
-                  <div style={{fontFamily:FF,fontSize:11,color:R2,marginBottom:10,textTransform:'uppercase',letterSpacing:0.3}}>ENTER PASSCODE TO ENABLE ADMIN ACCESS.</div>
+                  <div style={{fontFamily:FF,fontSize:11,color:R2,marginBottom:8,textTransform:'uppercase',letterSpacing:0.3}}>ENTER PASSCODE</div>
                   <div style={{display:'flex',gap:8}}>
-                    <input type="password" placeholder="PASSCODE" value={adminInput} onChange={e=>setAdminInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){if(adminInput===ADMIN_CODE){setIsAdmin(true);setAdminInput('');}else{setAdminInput('');alert('WRONG PASSCODE');};}}}
-                      style={{flex:1,background:BG,border:`1px solid ${R3}`,padding:12,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,letterSpacing:2}}/>
-                    <button onClick={()=>{if(adminInput===ADMIN_CODE){setIsAdmin(true);setAdminInput('');}else{setAdminInput('');alert('WRONG PASSCODE');}}}
+                    <input type="password" placeholder="PASSCODE" value={adminInput.trim()} onChange={e=>setAdminInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){if(adminInput.trim()===ADMIN_CODE){setIsAdmin(true);setAdminInput('');}else{setAdminInput('');alert('WRONG PASSCODE');}}}}
+                      style={{flex:1,background:BG,border:`1px solid ${R3}`,padding:12,color:R,fontSize:16,fontFamily:FF,outline:'none',boxSizing:'border-box',borderRadius:0,letterSpacing:2}}
+                      autoFocus/>
+                    <button onClick={()=>{if(adminInput.trim()===ADMIN_CODE){setIsAdmin(true);setAdminInput('');}else{setAdminInput('');alert('WRONG PASSCODE');}}}
                       style={{fontFamily:FF,fontSize:12,fontWeight:700,background:R,color:BG,border:'none',padding:'12px 16px',cursor:'pointer',borderRadius:0,textTransform:'uppercase',letterSpacing:1,WebkitTapHighlightColor:'transparent'}}>ENTER</button>
                   </div>
                 </div>
+              ):(
+                <div style={{fontFamily:FF,fontSize:11,color:R3,textTransform:'uppercase',letterSpacing:0.3}}>CREW MODE. VIEW-ONLY ACCESS.</div>
               )}
             </div>
 
