@@ -216,9 +216,16 @@ export default function App(){
   const mergePull=(local,data)=>{
     const added=data.added||[];
     const notes=data.notes||{};
-    const localIds=new Set(local.map(i=>i.id));
-    const result=local.map(i=>({...i,note:notes[i.id]!==undefined?notes[i.id]:i.note}));
-    added.filter(si=>!localIds.has(si.id)).forEach(si=>result.push({id:si.id,character:si.character,actor:si.actor||'',look:si.look||null,item:si.item,ret:false,done:false,note:si.note||''}));
+    const deletedSet=new Set((data.deleted||[]).map(Number));
+    const serverAddedIds=new Set(added.map(si=>si.id));
+    // Remove deleted INIT items and removed added items
+    const result=local
+      .filter(i=>!deletedSet.has(i.id))
+      .filter(i=>i.id<=MAX_INIT_ID||serverAddedIds.has(i.id))
+      .map(i=>({...i,note:notes[i.id]!==undefined?notes[i.id]:i.note}));
+    // Add new server items not yet local
+    const resultIds=new Set(result.map(i=>i.id));
+    added.filter(si=>!resultIds.has(si.id)).forEach(si=>result.push({id:si.id,character:si.character,actor:si.actor||'',look:si.look||null,item:si.item,ret:false,done:false,note:si.note||''}));
     return result;
   };
   const doPull=async()=>{
@@ -228,27 +235,32 @@ export default function App(){
       const r=await fetch(syncUrl.trim()+'?t='+Date.now());
       const data=await r.json();
       setItems(p=>mergePull(p,data));
-      setPullStatus('SYNCED ✓');
-    }catch(e){setPullStatus('ERROR');}
+      setPullStatus('SYNCED ✓ '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    }catch(e){setPullStatus('SYNC ERROR');}
   };
   const doPush=async()=>{
     if(!syncUrl.trim()){alert('PASTE YOUR APPS SCRIPT URL IN SETTINGS FIRST.');return;}
     setSyncPreview(false);
     setPushing(true);
     try{
-      const notes={};items.forEach(i=>{if(i.note)notes[i.id]=i.note;});
+      const notes={};items.forEach(i=>{notes[i.id]=i.note||'';});
       const added=items.filter(i=>i.id>MAX_INIT_ID).map(i=>({id:i.id,character:i.character,actor:i.actor||'',look:i.look||'',item:i.item,note:i.note||''}));
-      await fetch(syncUrl.trim(),{method:'POST',mode:'no-cors',body:JSON.stringify({notes,added})});
+      const currentIds=new Set(items.map(i=>i.id));
+      const deleted=INIT.map(i=>i.id).filter(id=>!currentIds.has(id));
+      await fetch(syncUrl.trim(),{method:'POST',mode:'no-cors',body:JSON.stringify({notes,added,deleted})});
       setPushSuccess(true);
     }catch(err){alert('SYNC FAILED: '+err.message);}
     setPushing(false);
   };
   useEffect(()=>{if(!isAdmin&&syncUrl.trim())doPull();},[]);
-  useEffect(()=>{if(!isAdmin||!syncUrl.trim())return;doPull();const iv=setInterval(doPull,60000);return()=>clearInterval(iv);},[isAdmin,syncUrl]);
+  // Admin is push-only — no polling. Only listeners pull.
 
   // NAV
   const Nav=()=>(
     <div style={{position:'fixed',bottom:0,left:0,right:0,background:BG,zIndex:100,borderTop:`1px solid ${R3}`}}>
+      {!isAdmin&&pullStatus&&(
+        <div style={{maxWidth:480,margin:'0 auto',padding:'3px 12px',fontFamily:FF,fontSize:8,color:R3,letterSpacing:1,textTransform:'uppercase',textAlign:'center'}}>{pullStatus}</div>
+      )}
       <div style={{maxWidth:480,margin:'0 auto',display:'flex'}}>
         <NavBtn active={view==='chars'&&!sel} Icon={IcUser} label="CHARS" onClick={()=>go('chars')}/>
         <NavBtn active={view==='all'} Icon={IcList} label="ALL" onClick={()=>go('all')}/>
@@ -453,7 +465,18 @@ export default function App(){
                 ))}
               </div>
             )}
-            {items.filter(i=>i.id>MAX_INIT_ID).length===0&&items.filter(i=>i.note).length===0&&(
+            {(()=>{const delIds=INIT.map(i=>i.id).filter(id=>!items.find(ii=>ii.id===id));return delIds.length>0?(
+              <div style={{marginBottom:12}}>
+                <div style={{fontFamily:FF,fontSize:9,fontWeight:700,color:R2,letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>DELETED ITEMS ({delIds.length})</div>
+                {delIds.map(id=>{const orig=INIT.find(i=>i.id===id);return orig?(
+                  <div key={id} style={{borderBottom:`1px solid ${R3}`,padding:'7px 0'}}>
+                    <div style={{fontFamily:FF,fontSize:10,fontWeight:700,color:R,textTransform:'uppercase',letterSpacing:0.5}}>{sn(orig.character)}</div>
+                    <div style={{fontFamily:FF,fontSize:11,color:R2,textTransform:'uppercase',letterSpacing:0.3,marginTop:2,textDecoration:'line-through'}}>{orig.item}</div>
+                  </div>
+                ):null;})}
+              </div>
+            ):null;})()}
+            {items.filter(i=>i.id>MAX_INIT_ID).length===0&&items.filter(i=>i.note).length===0&&INIT.every(i=>items.find(ii=>ii.id===i.id))&&(
               <div style={{fontFamily:FF,fontSize:11,color:R2,textTransform:'uppercase',letterSpacing:0.5,padding:'8px 0'}}>NOTHING TO SYNC YET</div>
             )}
           </div>
