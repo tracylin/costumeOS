@@ -103,7 +103,7 @@ const SK = {
 
 const BG='#0a0a0a',R='#c83c28',R2='#7a2518',R3='#3a1810',FF="'IBM Plex Mono','Menlo','Consolas',monospace",RD=14;
 const sn=n=>n.replace(/^\d+\./,'').trim();
-const getChars=items=>{const m=new Map();items.forEach(i=>{if(!m.has(i.character))m.set(i.character,{name:i.character,actor:i.actor,items:[],looks:new Set()});const c=m.get(i.character);c.items.push(i);if(i.look)c.looks.add(i.look);});return Array.from(m.values());};
+const getChars=items=>{const m=new Map();INIT.forEach(i=>{if(!m.has(i.character))m.set(i.character,{name:i.character,actor:i.actor,items:[],looks:new Set()});if(i.look)m.get(i.character).looks.add(i.look);});items.forEach(i=>{if(!m.has(i.character))m.set(i.character,{name:i.character,actor:i.actor,items:[],looks:new Set()});const c=m.get(i.character);c.items.push(i);if(i.look)c.looks.add(i.look);});return Array.from(m.values());};
 
 const Ic=({children,size=20,color=R,...p})=><svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>{children}</svg>;
 const IcUser=p=><Ic {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Ic>;
